@@ -28,6 +28,7 @@ function startServer(opts = {}) {
     model: '', // skip --model flag for stubs
     systemPrompt: '', // skip --append-system-prompt for stubs
     turnTimeoutMs: 5000,
+    advertisedSessionIds: ["session-g", "session-pv"],
     log: silentLog,
     ...opts,
   });
@@ -314,7 +315,7 @@ test('GET /healthz → 200 with sessions map', async () => {
     const r = await request(server, { method: 'GET', path: '/healthz' });
     assert.equal(r.status, 200);
     assert.equal(r.body.ok, true);
-    assert.equal(r.body.service, 'cc-telegram-bridge');
+    assert.equal(r.body.service, 'cc-bridge');
     assert.equal(typeof r.body.sessions, 'object');
   } finally {
     await server.shutdown();

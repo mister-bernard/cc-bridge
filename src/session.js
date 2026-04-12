@@ -137,6 +137,11 @@ export class SessionRegistry {
       '--output-format', 'stream-json',
       '--verbose',
       '--permission-mode', 'bypassPermissions',
+      // Don't write to ~/.claude/sessions/ — bridge sessions are managed by
+      // the registry's own lifecycle, not by CC's session persistence. This
+      // prevents bridge sessions from cluttering the session list that CC's
+      // --resume and /resume commands show.
+      '--no-session-persistence',
     ];
     if (this.model) {
       args.push('--model', this.model);
