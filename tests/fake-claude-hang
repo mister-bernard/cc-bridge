@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+# tests/fake-claude-hang — reads one user frame, then hangs forever without
+# emitting init, assistant, or result. Exercises the daemon's per-turn
+# timeout path.
+
+import sys
+import time
+
+for _line in sys.stdin:
+    break
+
+time.sleep(3600)

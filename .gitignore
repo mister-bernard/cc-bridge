@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+node_modules/
+*.log
+/workspace/
+/logs/
+__pycache__/
+*.pyc
+/tmp/

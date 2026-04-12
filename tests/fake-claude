@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+# tests/fake-claude — minimal stream-json stand-in for the `claude` CLI.
+# Ignores all CLI flags, emits an init frame, then one assistant+result per
+# user turn. Controllable via env vars:
+#   FAKE_CLAUDE_REPLY       - canned reply text (default: "ok (stub reply)")
+#   FAKE_CLAUDE_REPLY_MAP   - JSON dict mapping user text -> reply text
+#   FAKE_CLAUDE_TURN_DELAY  - seconds to sleep before each reply (default: 0)
+#   FAKE_CLAUDE_SESSION     - session id to emit (default: random UUID)
+
+import json
+import os
+import sys
+import time
+import uuid
+
+SESSION_ID = os.environ.get("FAKE_CLAUDE_SESSION", str(uuid.uuid4()))
+CANNED = os.environ.get("FAKE_CLAUDE_REPLY", "ok (stub reply)")
+TURN_DELAY = float(os.environ.get("FAKE_CLAUDE_TURN_DELAY", "0") or "0")
+
+try:
+    REPLY_MAP = json.loads(os.environ.get("FAKE_CLAUDE_REPLY_MAP", "") or "{}")
+except Exception:
+    REPLY_MAP = {}
+
+
+def emit(obj):
+    sys.stdout.write(json.dumps(obj) + "\n")
+    sys.stdout.flush()
+
+
+# NOTE: The real `claude -p --input-format stream-json` does NOT emit an init
+# frame at startup — it waits for the first user frame on stdin, then emits
+# init, then the assistant/result pair for that turn. This stub matches that
+# protocol so tests exercise the same code paths the supervisor will see live.
+init_emitted = False
+
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        msg = json.loads(line)
+    except json.JSONDecodeError:
+        emit({"type": "error", "error": "bad_json"})
+        continue
+
+    # Extract the user text (handles both string and content-array shapes).
+    text = ""
+    m = msg.get("message") if isinstance(msg, dict) else None
+    if isinstance(m, dict):
+        content = m.get("content", "")
+        if isinstance(content, list):
+            text = " ".join(
+                str(b.get("text", ""))
+                for b in content
+                if isinstance(b, dict) and b.get("type") == "text"
+            )
+        else:
+            text = str(content)
+
+    reply = REPLY_MAP.get(text.strip(), CANNED)
+
+    if not init_emitted:
+        emit({"type": "system", "subtype": "init", "session_id": SESSION_ID})
+        init_emitted = True
+
+    if TURN_DELAY > 0:
+        time.sleep(TURN_DELAY)
+
+    emit({
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": reply}],
+        },
+    })
+    emit({
+        "type": "result",
+        "subtype": "success",
+        "result": reply,
+        "session_id": SESSION_ID,
+        "total_cost_usd": 0.0,
+    })

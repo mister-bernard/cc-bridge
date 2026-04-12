@@ -1,0 +1,15 @@
+{
+  "name": "cc-telegram-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Persistent Claude Code session exposed to OpenClaw as an OpenAI-compatible provider (Telegram-facing).",
+  "type": "module",
+  "main": "src/daemon.js",
+  "scripts": {
+    "start": "node src/daemon.js",
+    "test": "node --test 'tests/unit/*.test.js' 'tests/security/*.test.js'"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

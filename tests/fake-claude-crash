@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+# tests/fake-claude-crash — reads one user frame on stdin, then exits 1
+# without ever emitting any output. Exercises the daemon's "child exited
+# mid-turn with no reply" path.
+
+import sys
+
+for _line in sys.stdin:
+    sys.exit(1)
+
+sys.exit(1)

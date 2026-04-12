@@ -1,0 +1,41 @@
+[Unit]
+Description=cc-telegram-bridge - persistent Claude Code session exposed to OpenClaw
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/openclaw/projects/cc-telegram-bridge
+ExecStart=/usr/bin/env node /home/openclaw/projects/cc-telegram-bridge/src/daemon.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+TimeoutStartSec=30
+SuccessExitStatus=0 143
+KillMode=control-group
+
+# Logging — journal, tagged for easy filtering.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cc-telegram-bridge
+
+# Secrets + runtime config come from the bridge .env. All non-secret
+# config (port, model, timeouts, claude path, cwd) is ALSO in .env so
+# this unit file stays secret-free.
+EnvironmentFile=/home/openclaw/projects/cc-telegram-bridge/.env
+
+# Constants that must not be overridable from .env.
+Environment=HOME=/home/openclaw
+Environment=NODE_ENV=production
+
+# Claude Code uses OAuth from ~/.claude/.credentials.json (Max sub, $0).
+# ANTHROPIC_API_KEY MUST be empty — it would override OAuth and start
+# billing the pay-per-token endpoint.
+Environment=ANTHROPIC_API_KEY=
+
+# Intentionally NO sd_notify / WatchdogSec. Liveness is enforced by
+# Restart=on-failure plus the daemon's per-child supervisor (see
+# src/supervisor.js). See research/ops-plan.md §2 for reasoning.
+
+[Install]
+WantedBy=default.target
