@@ -86,7 +86,7 @@ def main() -> int:
                 "id": "cc-bridge-pv",
                 "default": False,
                 "name": "CC Bridge (PV-enclave)",
-                "workspace": "/home/openclaw/projects/cc-telegram-bridge/workspace",
+                "workspace": "/home/openclaw/projects/cc-bridge/workspace",
                 "model": {
                     "primary": "cc-bridge/session-pv",
                     "fallbacks": [

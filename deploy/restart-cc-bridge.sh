@@ -1,8 +1,8 @@
 #!/bin/bash
-# restart-cc-bridge.sh - Safe restart wrapper for cc-telegram-bridge.service
+# restart-cc-bridge.sh - Safe restart wrapper for cc-bridge.service
 #
 # Modeled on scripts/restart-gateway.sh. ALWAYS use this instead of bare
-# `systemctl --user restart cc-telegram-bridge`. It:
+# `systemctl --user restart cc-bridge`. It:
 #   1. Validates .env is parseable and has required vars
 #   2. Backs up the current .env
 #   3. Restarts via systemd
@@ -14,15 +14,15 @@
 set -uo pipefail
 
 REASON="${1:-manual restart}"
-UNIT="cc-telegram-bridge.service"
-ENV_FILE="$HOME/projects/cc-telegram-bridge/.env"
+UNIT="cc-bridge.service"
+ENV_FILE="$HOME/projects/cc-bridge/.env"
 BACKUP="$ENV_FILE.bak.$(date +%s)"
 HEALTH_URL="http://127.0.0.1:18790/health"
 LOG="/tmp/cc-bridge-restart.log"
 
 log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*" | tee -a "$LOG"; }
 
-log "cc-telegram-bridge restart requested: $REASON"
+log "cc-bridge restart requested: $REASON"
 
 # 1. Env file must exist and be non-empty
 if [ ! -s "$ENV_FILE" ]; then
@@ -60,7 +60,7 @@ systemctl --user restart "$UNIT" 2>&1 | tee -a "$LOG"
 # 6. Wait then probe /health
 sleep 4
 if curl -fsS --max-time 5 "$HEALTH_URL" >/dev/null 2>&1; then
-  log "cc-telegram-bridge healthy"
+  log "cc-bridge healthy"
   # keep last 5 backups
   ls -t "$ENV_FILE".bak.* 2>/dev/null | tail -n +6 | xargs -r rm -f
   exit 0

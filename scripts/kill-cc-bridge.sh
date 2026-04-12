@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# kill-cc-bridge.sh — EMERGENCY rollback for cc-telegram-bridge.
+# kill-cc-bridge.sh — EMERGENCY rollback for cc-bridge.
 #
 # Stops the bridge daemon, restores the last-pre-cc-bridge openclaw.json
 # backup, and restarts the gateway so Telegram + Signal DMs from G go back
@@ -30,8 +30,8 @@ echo "[kill] Reason: $REASON"
 echo "[kill] Restoring config from: $BACKUP"
 
 # 1) stop bridge
-systemctl --user stop cc-telegram-bridge 2>/dev/null || true
-systemctl --user disable cc-telegram-bridge 2>/dev/null || true
+systemctl --user stop cc-bridge 2>/dev/null || true
+systemctl --user disable cc-bridge 2>/dev/null || true
 
 # 2) restore config
 cp "$HOME/.openclaw/openclaw.json" "$HOME/.openclaw/openclaw.json.rolled-back-$(date +%s)"
@@ -42,7 +42,7 @@ bash "$HOME/.openclaw/workspace.old/scripts/restart-gateway.sh" "kill-cc-bridge:
 
 echo "[kill] DONE. cc-bridge stopped, config restored, gateway restarted."
 echo "[kill] To re-enable later:"
-echo "  bash /home/openclaw/projects/cc-telegram-bridge/scripts/apply-config-edits.py"
-echo "  bash /home/openclaw/projects/cc-telegram-bridge/scripts/apply-config-edits-v2.py"
-echo "  systemctl --user enable --now cc-telegram-bridge"
+echo "  bash /home/openclaw/projects/cc-bridge/scripts/apply-config-edits.py"
+echo "  bash /home/openclaw/projects/cc-bridge/scripts/apply-config-edits-v2.py"
+echo "  systemctl --user enable --now cc-bridge"
 echo "  bash $HOME/.openclaw/workspace.old/scripts/restart-gateway.sh 're-enable cc-bridge'"

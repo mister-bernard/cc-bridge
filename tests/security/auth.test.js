@@ -1,6 +1,6 @@
 // tests/security/auth.test.js
 //
-// Bearer-auth gate for the cc-telegram-bridge daemon. The daemon is
+// Bearer-auth gate for the cc-bridge daemon. The daemon is
 // loopback-only, so this is "which local process is calling" — user identity
 // (G vs. non-G) is enforced upstream by OpenClaw's bindings, not here.
 

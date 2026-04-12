@@ -65,7 +65,7 @@ def main() -> int:
                 "id": "cc-bridge-groups",
                 "default": False,
                 "name": "CC Bridge (groups / public-facing)",
-                "workspace": "/home/openclaw/projects/cc-telegram-bridge/workspace",
+                "workspace": "/home/openclaw/projects/cc-bridge/workspace",
                 "model": {
                     "primary": "cc-bridge/session-groups",
                     # NO fallbacks — no silent rollover to other models.

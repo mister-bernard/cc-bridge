@@ -1,6 +1,6 @@
 # OpenClaw Gateway — Telegram → Agent Dispatch, Extension Points, and Bridge Integration Plan
 
-Scouting report for the `cc-telegram-bridge` team. Read-only; no files in
+Scouting report for the `cc-bridge` team. Read-only; no files in
 `.npm-global` were touched.
 
 Package root: `/home/openclaw/.npm-global/lib/node_modules/openclaw/`

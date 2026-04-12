@@ -1,12 +1,12 @@
 [Unit]
-Description=cc-telegram-bridge - persistent Claude Code session exposed to OpenClaw
+Description=cc-bridge - persistent Claude Code session exposed to OpenClaw
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/openclaw/projects/cc-telegram-bridge
-ExecStart=/usr/bin/env node /home/openclaw/projects/cc-telegram-bridge/src/daemon.js
+WorkingDirectory=/home/openclaw/projects/cc-bridge
+ExecStart=/usr/bin/env node /home/openclaw/projects/cc-bridge/src/daemon.js
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
@@ -17,12 +17,12 @@ KillMode=control-group
 # Logging — journal, tagged for easy filtering.
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=cc-telegram-bridge
+SyslogIdentifier=cc-bridge
 
 # Secrets + runtime config come from the bridge .env. All non-secret
 # config (port, model, timeouts, claude path, cwd) is ALSO in .env so
 # this unit file stays secret-free.
-EnvironmentFile=/home/openclaw/projects/cc-telegram-bridge/.env
+EnvironmentFile=/home/openclaw/projects/cc-bridge/.env
 
 # Constants that must not be overridable from .env.
 Environment=HOME=/home/openclaw

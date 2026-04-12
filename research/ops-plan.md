@@ -1,6 +1,6 @@
-# cc-telegram-bridge — Ops Plan
+# cc-bridge — Ops Plan
 
-Owner: ops (cc-telegram-bridge team). Scope: how the bridge daemon runs as
+Owner: ops (cc-bridge team). Scope: how the bridge daemon runs as
 a managed service with heartbeat, auto-restart, credential plumbing, and
 observability. Read-only inspection of real services; all drafts in
 `/tmp/muxxin-demo/app/deploy/`.
@@ -70,7 +70,7 @@ scheduled *workload*, not a liveness ping. There is also a separate
 cheap shell-level port checks — that's the liveness pattern, kept
 deliberately apart from the LLM loop.
 
-**Implication for cc-telegram-bridge:**
+**Implication for cc-bridge:**
 
 1. The bridge daemon does not need `WatchdogSec=` / sd_notify. Nothing in
    the codebase uses it; introducing it here would be a one-off.
@@ -139,38 +139,38 @@ Claude Code holds the session. No tokens needed.
 
    ```bash
    # Interactive - KeePassXC prompts for master password
-   keepassxc-cli add -p ~/.openclaw/vault.kdbx "cc-telegram-bridge/TELEGRAM_BOT_TOKEN"
+   keepassxc-cli add -p ~/.openclaw/vault.kdbx "cc-bridge/TELEGRAM_BOT_TOKEN"
    ```
 
 2. Append the entry to `config/secrets-manifest.yaml` under a new
-   `cc-telegram-bridge` service block:
+   `cc-bridge` service block:
 
    ```yaml
-   cc-telegram-bridge:
-     env_file: ~/projects/cc-telegram-bridge/.env
+   cc-bridge:
+     env_file: ~/projects/cc-bridge/.env
      secrets:
        - var: TELEGRAM_BOT_TOKEN
-         vault_path: cc-telegram-bridge/TELEGRAM_BOT_TOKEN
+         vault_path: cc-bridge/TELEGRAM_BOT_TOKEN
          vault_attribute: password
    ```
 
 3. Deploy (dry run first):
 
    ```bash
-   bash scripts/secrets-deploy.sh --dry-run --service cc-telegram-bridge
-   bash scripts/secrets-deploy.sh --service cc-telegram-bridge
+   bash scripts/secrets-deploy.sh --dry-run --service cc-bridge
+   bash scripts/secrets-deploy.sh --service cc-bridge
    ```
 
 4. Verify the `.env` was written and has **no** `ANTHROPIC_API_KEY` line:
 
    ```bash
-   grep -c ANTHROPIC_API_KEY ~/projects/cc-telegram-bridge/.env  # must be 0
+   grep -c ANTHROPIC_API_KEY ~/projects/cc-bridge/.env  # must be 0
    ```
 
 5. Restart via the wrapper (never bare `systemctl`):
 
    ```bash
-   bash ~/projects/cc-telegram-bridge/scripts/restart-cc-bridge.sh "initial deploy"
+   bash ~/projects/cc-bridge/scripts/restart-cc-bridge.sh "initial deploy"
    ```
 
 Drift detection: `secrets-audit.sh` (already in the workspace) picks up
@@ -190,7 +190,7 @@ the new manifest entry automatically on next run.
   "child_uptime_sec": 87234,
   "last_frame_age_sec": 3,
   "queue_depth": 0,
-  "version": "cc-telegram-bridge 0.1.0"
+  "version": "cc-bridge 0.1.0"
 }
 ```
 
@@ -208,20 +208,20 @@ lvl=warn evt=claude.respawn reason=stdout_eof pid=12345 lifetime_sec=3601
 ```
 
 **Log sinks**: journal only. `StandardOutput=journal`,
-`SyslogIdentifier=cc-telegram-bridge`. No file log — rotation already
+`SyslogIdentifier=cc-bridge`. No file log — rotation already
 handled by journald.
 
 **Check commands (for runbook):**
 
 ```bash
 # status
-systemctl --user status cc-telegram-bridge
+systemctl --user status cc-bridge
 
 # tail live
-journalctl --user -u cc-telegram-bridge -f
+journalctl --user -u cc-bridge -f
 
 # last 200 lines, find respawns
-journalctl --user -u cc-telegram-bridge -n 200 --no-pager | grep respawn
+journalctl --user -u cc-bridge -n 200 --no-pager | grep respawn
 
 # health
 curl -s 127.0.0.1:18790/health | jq
@@ -249,22 +249,22 @@ gateway script:
 
 **Install checklist for G** (again, ops does not execute):
 
-1. Land the repo at `~/projects/cc-telegram-bridge/`.
-2. `scripts/secrets-deploy.sh --service cc-telegram-bridge` (see §3).
+1. Land the repo at `~/projects/cc-bridge/`.
+2. `scripts/secrets-deploy.sh --service cc-bridge` (see §3).
 3. Copy the unit file:
-   `cp deploy/cc-telegram-bridge.service ~/.config/systemd/user/`
+   `cp deploy/cc-bridge.service ~/.config/systemd/user/`
 4. `systemctl --user daemon-reload`
-5. `systemctl --user enable cc-telegram-bridge`
+5. `systemctl --user enable cc-bridge`
 6. `bash scripts/restart-cc-bridge.sh "initial deploy"`
 7. Confirm: `curl -s 127.0.0.1:18790/health | jq` shows `ok: true`.
 8. Tail for 60s to catch early crashes:
-   `journalctl --user -u cc-telegram-bridge -f`
+   `journalctl --user -u cc-bridge -f`
 
-**Never** `systemctl --user restart cc-telegram-bridge` bare — the wrapper
+**Never** `systemctl --user restart cc-bridge` bare — the wrapper
 enforces the .env-validation gate that prevents the ANTHROPIC_API_KEY foot-gun.
 
 **Deliverables produced by this plan:**
 
-- `/tmp/muxxin-demo/app/deploy/cc-telegram-bridge.service`
+- `/tmp/muxxin-demo/app/deploy/cc-bridge.service`
 - `/tmp/muxxin-demo/app/deploy/restart-cc-bridge.sh`
 - This document.

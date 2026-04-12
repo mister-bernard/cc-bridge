@@ -1,4 +1,4 @@
-# cc-telegram-bridge — Testing Strategy
+# cc-bridge — Testing Strategy
 
 Scope: smoke + regression tests for a daemon that keeps a persistent `claude`
 session alive and accepts dispatched messages from OpenClaw. Zero live

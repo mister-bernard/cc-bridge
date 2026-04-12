@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 CONFIG = Path.home() / ".openclaw/openclaw.json"
-BRIDGE_ENV = Path.home() / "projects/cc-telegram-bridge/.env"
+BRIDGE_ENV = Path.home() / "projects/cc-bridge/.env"
 
 
 def load_env(path: Path) -> dict:
@@ -79,7 +79,7 @@ def main() -> int:
                 "id": "cc-bridge",
                 "default": False,
                 "name": "CC Bridge (persistent)",
-                "workspace": "/home/openclaw/projects/cc-telegram-bridge/workspace",
+                "workspace": "/home/openclaw/projects/cc-bridge/workspace",
                 "model": {
                     "primary": "cc-bridge/session-g",
                     "fallbacks": [
