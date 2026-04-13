@@ -153,6 +153,11 @@ export class SessionRegistry {
     return args.concat(this._resolveExtraArgs(sessionId));
   }
 
+  /** True if a supervisor for this session is already running (warm). */
+  isWarm(id) {
+    return this._ready.has(id) || this._pending.has(id);
+  }
+
   get(id) {
     const existing = this._pending.get(id);
     if (existing) return existing;

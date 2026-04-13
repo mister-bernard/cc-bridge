@@ -23,6 +23,7 @@ import path from 'node:path';
 import { SessionRegistry } from './session.js';
 import { checkBearer } from './auth.js';
 import { MessageBatcher } from './batcher.js';
+import { BootNotifier } from './boot-notifier.js';
 
 // ---------------------------------------------------------------------------
 // Prompt loading — file-based, zero baked-in identity
@@ -162,7 +163,7 @@ export function createServer({
     10,
   ),
   noProgressTimeoutMs = parseInt(
-    process.env.CC_BRIDGE_NO_PROGRESS_TIMEOUT_MS || '30000',
+    process.env.CC_BRIDGE_NO_PROGRESS_TIMEOUT_MS || '90000',
     10,
   ),
   // Message batching: debounce rapid-fire messages for the same session
@@ -234,6 +235,8 @@ export function createServer({
     onLog: log,
   });
 
+  const bootNotifier = new BootNotifier({ onLog: log });
+
   const server = http.createServer(async (req, res) => {
     const reqStart = Date.now();
     let url;
@@ -277,7 +280,7 @@ export function createServer({
         sendJson(res, 200, {
           ok: true,
           service: 'cc-bridge',
-          version: '0.3.0',
+          version: '0.4.0',
           prompts_dir: PROMPTS_DIR,
           batch_debounce_ms: batchDebounceMs,
           batch_pending: batcher.pendingCount,
@@ -434,6 +437,13 @@ export function createServer({
         // This request is the primary — send the (possibly combined) text.
         const finalPrompt = batch.combinedText;
 
+        // Boot notification — fire before spawning so users see "spinning up"
+        // during the cold-start delay instead of silence.
+        const isColdStart = !registry.isWarm(modelId);
+        if (isColdStart) {
+          bootNotifier.notifyBoot(modelId);
+        }
+
         let sup;
         try {
           sup = await registry.get(modelId);
@@ -471,6 +481,9 @@ export function createServer({
           });
           return;
         }
+
+        // Clean up boot message now that the real response is ready.
+        bootNotifier.clearBoot(modelId);
 
         const id = `chatcmpl-${Date.now()}`;
         const created = Math.floor(Date.now() / 1000);
