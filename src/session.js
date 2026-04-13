@@ -6,6 +6,7 @@
 import path from 'node:path';
 import { ClaudeSupervisor } from './supervisor.js';
 import { SessionStore } from './session-store.js';
+import { ConvoLog } from './convo-log.js';
 
 export class SessionRegistry {
   constructor({
@@ -46,10 +47,20 @@ export class SessionRegistry {
     this.idleTimeoutMs = idleTimeoutMs;
     this.sweepIntervalMs = sweepIntervalMs;
     this.noProgressTimeoutMs = noProgressTimeoutMs;
-    // Session persistence — resumes CC conversations across process restarts
+    // session-store kept for future use if CC ever supports --resume in -p mode,
+    // but is NOT the primary memory mechanism. ConvoLog is.
     this.store = new SessionStore({
       stateFile: claudeCwd
         ? path.join(claudeCwd, 'session-state.json')
+        : undefined,
+      onLog,
+    });
+
+    // Conversation log — append every turn to JSONL, inject on spawn.
+    // This is the reliable memory mechanism: file-based, survives everything.
+    this.convoLog = new ConvoLog({
+      logsDir: claudeCwd
+        ? path.join(claudeCwd, 'conversations')
         : undefined,
       onLog,
     });
@@ -140,31 +151,35 @@ export class SessionRegistry {
   }
 
   _buildArgs(sessionId) {
-    const resumeId = this.store.get(sessionId);
     const args = [
       '-p',
       '--input-format', 'stream-json',
       '--output-format', 'stream-json',
       '--verbose',
+      '--no-session-persistence',   // -p mode doesn't write ~/.claude/sessions/
       '--permission-mode', 'bypassPermissions',
-      // Session persistence is ENABLED (no --no-session-persistence) so CC
-      // saves conversations to ~/.claude/sessions/. On respawn we pass
-      // --resume <uuid> to restore the full conversation context. This is
-      // what makes Telegram feel like a continuous chat rather than goldfish
-      // memory — context survives idle timeouts, no-progress kills, and
-      // cc-bridge restarts.
     ];
-    if (resumeId) {
-      args.push('--resume', resumeId);
-      this.onLog({ evt: 'session.resume', session: sessionId, claude_id: resumeId });
-    }
     if (this.model) {
       args.push('--model', this.model);
     }
-    const prompt = this._resolveSystemPrompt(sessionId);
-    if (prompt) {
-      args.push('--append-system-prompt', prompt);
+    // Build the system prompt: session identity + conversation history block.
+    // The history block is the primary memory mechanism — injected fresh on
+    // every spawn so context survives restarts, kills, and idle expiry.
+    const identityPrompt = this._resolveSystemPrompt(sessionId);
+    const historyBlock = this.convoLog.historyBlock(sessionId);
+    const fullPrompt = historyBlock
+      ? (identityPrompt ? identityPrompt + historyBlock : historyBlock)
+      : identityPrompt;
+    if (fullPrompt) {
+      args.push('--append-system-prompt', fullPrompt);
     }
+    const msgCount = this.convoLog.count(sessionId);
+    this.onLog({
+      evt: 'session.spawn',
+      session: sessionId,
+      history_msgs: msgCount,
+      resuming: msgCount > 0,
+    });
     return args.concat(this._resolveExtraArgs(sessionId));
   }
 
@@ -173,17 +188,17 @@ export class SessionRegistry {
     return this._ready.has(id) || this._pending.has(id);
   }
 
-  /**
-   * Persist the Claude session UUID so future respawns can --resume it.
-   * Called by the daemon after the first successful turn on a cold-start.
-   */
-  saveSessionId(bridgeId, claudeSessionId) {
-    this.store.set(bridgeId, claudeSessionId);
+  /** Log a turn to the conversation log. Called by the daemon after each exchange. */
+  logTurn(sessionId, userText, assistantText) {
+    this.convoLog.append(sessionId, 'user', userText);
+    this.convoLog.append(sessionId, 'assistant', assistantText);
   }
 
-  /** Return the stored session UUIDs (for healthz). */
-  sessionSnapshot() {
-    return this.store.snapshot();
+  /** Return conversation log stats for all sessions (for healthz). */
+  convoSnapshot() {
+    return Object.fromEntries(
+      this.convoLog.sessions().map((s) => [s, { msgs: this.convoLog.count(s) }]),
+    );
   }
 
   get(id) {

@@ -280,12 +280,12 @@ export function createServer({
         sendJson(res, 200, {
           ok: true,
           service: 'cc-bridge',
-          version: '0.5.0',
+          version: '0.6.0',
           prompts_dir: PROMPTS_DIR,
           batch_debounce_ms: batchDebounceMs,
           batch_pending: batcher.pendingCount,
           sessions: registry.stats(),
-          session_store: registry.sessionSnapshot(),
+          conversations: registry.convoSnapshot(),
         });
         return;
       }
@@ -483,10 +483,9 @@ export function createServer({
           return;
         }
 
-        // Persist the Claude session UUID so future respawns can --resume.
-        if (sup.sessionId) {
-          registry.saveSessionId(modelId, sup.sessionId);
-        }
+        // Log this exchange. This is the memory mechanism — injected into the
+        // system prompt on every subsequent spawn so context is never lost.
+        registry.logTurn(modelId, finalPrompt, result.text);
 
         // Clean up boot message now that the real response is ready.
         bootNotifier.clearBoot(modelId);
