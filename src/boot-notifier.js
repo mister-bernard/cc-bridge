@@ -7,9 +7,12 @@
 // real response — clean UX: user sees one message, not two.
 //
 // Config (env):
-//   CC_BRIDGE_TG_BOT_TOKEN      — Telegram bot token
-//   CC_BRIDGE_SESSION_TG_GROUPS — JSON map: sessionId → array of chat IDs
-//     e.g. {"session-tom": ["-5271053898", "-5281764808"], "session-elina": ["-5190022092"]}
+//   CC_BRIDGE_TG_BOT_TOKEN           — Telegram bot token
+//   CC_BRIDGE_SESSION_TG_GROUPS      — JSON map: sessionId → array of chat IDs
+//     e.g. {"session-tom": ["-5271053898"], "session-elina": ["-5190022092"]}
+//   CC_BRIDGE_BOOT_NOTIFY_SUPPRESS   — comma-separated session IDs that should
+//     NOT send a boot message even if listed in TG_GROUPS (observer/silent sessions)
+//     e.g. "session-limitless,session-groups"
 
 import https from 'node:https';
 
@@ -66,11 +69,18 @@ function tgPost(botToken, method, body) {
   });
 }
 
+function parseSuppressSet() {
+  const raw = (process.env.CC_BRIDGE_BOOT_NOTIFY_SUPPRESS || '').trim();
+  if (!raw) return new Set();
+  return new Set(raw.split(',').map((s) => s.trim()).filter(Boolean));
+}
+
 export class BootNotifier {
-  constructor({ botToken, sessionTgGroups, onLog = () => {} } = {}) {
+  constructor({ botToken, sessionTgGroups, suppressSet, onLog = () => {} } = {}) {
     this.botToken = botToken || process.env.CC_BRIDGE_TG_BOT_TOKEN
                              || process.env.TELEGRAM_BOT_TOKEN || '';
     this.groups = sessionTgGroups || parseTgGroups();
+    this.suppress = suppressSet || parseSuppressSet();
     this.onLog = onLog;
     // Track pending boot message_ids so we can delete them after first response
     // Map: `${sessionId}:${chatId}` → message_id
@@ -88,6 +98,7 @@ export class BootNotifier {
    */
   notifyBoot(sessionId) {
     if (!this.botToken) return;
+    if (this.suppress.has(sessionId)) return; // per-session opt-out
     const chats = this.chatsFor(sessionId);
     if (!chats.length) return;
 
