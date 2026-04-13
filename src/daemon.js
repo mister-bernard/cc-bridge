@@ -280,11 +280,12 @@ export function createServer({
         sendJson(res, 200, {
           ok: true,
           service: 'cc-bridge',
-          version: '0.4.0',
+          version: '0.5.0',
           prompts_dir: PROMPTS_DIR,
           batch_debounce_ms: batchDebounceMs,
           batch_pending: batcher.pendingCount,
           sessions: registry.stats(),
+          session_store: registry.sessionSnapshot(),
         });
         return;
       }
@@ -480,6 +481,11 @@ export function createServer({
             error: { type: 'upstream_error', message: err.message },
           });
           return;
+        }
+
+        // Persist the Claude session UUID so future respawns can --resume.
+        if (sup.sessionId) {
+          registry.saveSessionId(modelId, sup.sessionId);
         }
 
         // Clean up boot message now that the real response is ready.

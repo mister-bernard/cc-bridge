@@ -3,7 +3,9 @@
 // SessionRegistry — maps session-id → ClaudeSupervisor. Lazy spawn, concurrent
 // gets for the same id return the same in-flight supervisor promise (no races).
 
+import path from 'node:path';
 import { ClaudeSupervisor } from './supervisor.js';
+import { SessionStore } from './session-store.js';
 
 export class SessionRegistry {
   constructor({
@@ -44,6 +46,13 @@ export class SessionRegistry {
     this.idleTimeoutMs = idleTimeoutMs;
     this.sweepIntervalMs = sweepIntervalMs;
     this.noProgressTimeoutMs = noProgressTimeoutMs;
+    // Session persistence — resumes CC conversations across process restarts
+    this.store = new SessionStore({
+      stateFile: claudeCwd
+        ? path.join(claudeCwd, 'session-state.json')
+        : undefined,
+      onLog,
+    });
 
     this._pending = new Map(); // id → Promise<ClaudeSupervisor>
     this._ready = new Map(); // id → ClaudeSupervisor (once start() resolves)
@@ -131,18 +140,24 @@ export class SessionRegistry {
   }
 
   _buildArgs(sessionId) {
+    const resumeId = this.store.get(sessionId);
     const args = [
       '-p',
       '--input-format', 'stream-json',
       '--output-format', 'stream-json',
       '--verbose',
       '--permission-mode', 'bypassPermissions',
-      // Don't write to ~/.claude/sessions/ — bridge sessions are managed by
-      // the registry's own lifecycle, not by CC's session persistence. This
-      // prevents bridge sessions from cluttering the session list that CC's
-      // --resume and /resume commands show.
-      '--no-session-persistence',
+      // Session persistence is ENABLED (no --no-session-persistence) so CC
+      // saves conversations to ~/.claude/sessions/. On respawn we pass
+      // --resume <uuid> to restore the full conversation context. This is
+      // what makes Telegram feel like a continuous chat rather than goldfish
+      // memory — context survives idle timeouts, no-progress kills, and
+      // cc-bridge restarts.
     ];
+    if (resumeId) {
+      args.push('--resume', resumeId);
+      this.onLog({ evt: 'session.resume', session: sessionId, claude_id: resumeId });
+    }
     if (this.model) {
       args.push('--model', this.model);
     }
@@ -158,6 +173,19 @@ export class SessionRegistry {
     return this._ready.has(id) || this._pending.has(id);
   }
 
+  /**
+   * Persist the Claude session UUID so future respawns can --resume it.
+   * Called by the daemon after the first successful turn on a cold-start.
+   */
+  saveSessionId(bridgeId, claudeSessionId) {
+    this.store.set(bridgeId, claudeSessionId);
+  }
+
+  /** Return the stored session UUIDs (for healthz). */
+  sessionSnapshot() {
+    return this.store.snapshot();
+  }
+
   get(id) {
     const existing = this._pending.get(id);
     if (existing) return existing;
@@ -165,7 +193,9 @@ export class SessionRegistry {
     const promise = (async () => {
       const sup = new ClaudeSupervisor({
         command: this.claudeBin,
-        args: this._buildArgs(id),
+        // Pass a factory so each respawn re-evaluates --resume with the
+        // latest saved session UUID (set after the first successful turn).
+        args: () => this._buildArgs(id),
         cwd: this.claudeCwd,
         // Explicitly unset ANTHROPIC_API_KEY so CC uses OAuth from
         // ~/.claude/.credentials.json. An inherited key would silently

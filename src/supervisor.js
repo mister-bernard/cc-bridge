@@ -39,7 +39,10 @@ export class ClaudeSupervisor {
     noProgressTimeoutMs = 30000,
   }) {
     this.command = command;
-    this.args = args;
+    // args can be a plain array (fixed) or a function() → string[] (evaluated
+    // on every spawn so --resume can be injected after the first session ID
+    // is saved without recreating the supervisor).
+    this._argsFactory = typeof args === 'function' ? args : () => args;
     this.env = { ...process.env, ...env };
     this.cwd = cwd;
     this.onLog = onLog;
@@ -109,8 +112,10 @@ export class ClaudeSupervisor {
     // startup — init arrives only after the first user frame is written to
     // stdin. So start() completes as soon as the child process has been
     // spawned; the first `sendPrompt` is what actually wakes claude up.
+    const currentArgs = this._argsFactory();
+    this.onLog({ evt: 'claude.args', args: currentArgs.join(' ') });
     try {
-      this.child = spawn(this.command, this.args, {
+      this.child = spawn(this.command, currentArgs, {
         cwd: this.cwd,
         env: this.env,
         stdio: ['pipe', 'pipe', 'pipe'],
