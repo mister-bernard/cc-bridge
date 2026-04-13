@@ -22,6 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { SessionRegistry } from './session.js';
 import { checkBearer } from './auth.js';
+import { MessageBatcher } from './batcher.js';
 
 // ---------------------------------------------------------------------------
 // Prompt loading — file-based, zero baked-in identity
@@ -164,6 +165,12 @@ export function createServer({
     process.env.CC_BRIDGE_NO_PROGRESS_TIMEOUT_MS || '30000',
     10,
   ),
+  // Message batching: debounce rapid-fire messages for the same session
+  // into a single combined CC turn. 0 = disabled. Default 1500ms.
+  batchDebounceMs = parseInt(
+    process.env.CC_BRIDGE_BATCH_DEBOUNCE_MS || '1500',
+    10,
+  ),
   advertisedSessionIds = listSessionIds(),
   extraEnv = {},
   log = defaultLog,
@@ -222,6 +229,11 @@ export function createServer({
   });
   registry.startSweeper();
 
+  const batcher = new MessageBatcher({
+    debounceMs: batchDebounceMs,
+    onLog: log,
+  });
+
   const server = http.createServer(async (req, res) => {
     const reqStart = Date.now();
     let url;
@@ -265,8 +277,10 @@ export function createServer({
         sendJson(res, 200, {
           ok: true,
           service: 'cc-bridge',
-          version: '0.2.0',
+          version: '0.3.0',
           prompts_dir: PROMPTS_DIR,
+          batch_debounce_ms: batchDebounceMs,
+          batch_pending: batcher.pendingCount,
           sessions: registry.stats(),
         });
         return;
@@ -381,6 +395,45 @@ export function createServer({
           ? `[peer=${peerTag}]\n${userText}`
           : userText;
 
+        // --- Message batching ---
+        // If batching is enabled, rapid-fire messages for the same session
+        // get debounced into a single CC turn. Non-primary requests in a
+        // batch return an empty ack so the gateway doesn't surface duplicates.
+        const batch = await batcher.submit(modelId, promptText);
+        if (!batch.isPrimary) {
+          // Another request in the same debounce window will carry the
+          // combined prompt. Return an empty ack for this one.
+          if (batch.batchSize > 0) {
+            log({
+              evt: 'turn.batched',
+              model: modelId,
+              batch_size: batch.batchSize,
+            });
+          }
+          sendJson(res, 200, {
+            id: `chatcmpl-${Date.now()}`,
+            object: 'chat.completion',
+            created: Math.floor(Date.now() / 1000),
+            model: modelId,
+            choices: [
+              {
+                index: 0,
+                message: { role: 'assistant', content: '' },
+                finish_reason: 'stop',
+              },
+            ],
+            usage: {
+              prompt_tokens: 0,
+              completion_tokens: 0,
+              total_tokens: 0,
+            },
+          });
+          return;
+        }
+
+        // This request is the primary — send the (possibly combined) text.
+        const finalPrompt = batch.combinedText;
+
         let sup;
         try {
           sup = await registry.get(modelId);
@@ -402,7 +455,7 @@ export function createServer({
 
         let result;
         try {
-          result = await sup.sendPrompt(promptText, {
+          result = await sup.sendPrompt(finalPrompt, {
             timeoutMs: turnTimeoutMs,
           });
         } catch (err) {
@@ -509,7 +562,9 @@ export function createServer({
   });
 
   server.registry = registry;
+  server.batcher = batcher;
   server.shutdown = async () => {
+    batcher.clear();
     await new Promise((resolve) => server.close(() => resolve()));
     await registry.shutdown();
   };

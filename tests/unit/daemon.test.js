@@ -28,6 +28,7 @@ function startServer(opts = {}) {
     model: '', // skip --model flag for stubs
     systemPrompt: '', // skip --append-system-prompt for stubs
     turnTimeoutMs: 5000,
+    batchDebounceMs: 0, // disable batching for existing tests
     advertisedSessionIds: ["session-g", "session-pv"],
     log: silentLog,
     ...opts,
@@ -316,6 +317,7 @@ test('GET /healthz → 200 with sessions map', async () => {
     assert.equal(r.status, 200);
     assert.equal(r.body.ok, true);
     assert.equal(r.body.service, 'cc-bridge');
+    assert.equal(r.body.version, '0.3.0');
     assert.equal(typeof r.body.sessions, 'object');
   } finally {
     await server.shutdown();
@@ -522,6 +524,75 @@ test('unknown route → 404', async () => {
       headers: authed,
     });
     assert.equal(r.status, 404);
+  } finally {
+    await server.shutdown();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Message batching integration tests
+// ---------------------------------------------------------------------------
+
+test('DBATCH1 two rapid messages to same session → first gets empty ack, second gets real reply', async () => {
+  const server = await startServer({
+    batchDebounceMs: 200,
+    extraEnv: { FAKE_CLAUDE_TURN_DELAY: '0.1' },
+  });
+  try {
+    const send = (msg) =>
+      request(
+        server,
+        { method: 'POST', path: '/v1/chat/completions', headers: authed },
+        { model: 'session-g', messages: [{ role: 'user', content: msg }] },
+      );
+
+    // Fire both requests without waiting.
+    const [r1, r2] = await Promise.all([send('first'), send('second')]);
+
+    // First request: empty ack (batched away).
+    assert.equal(r1.status, 200);
+    assert.equal(r1.body.choices[0].message.content, '');
+
+    // Second request: real CC response with combined content.
+    assert.equal(r2.status, 200);
+    assert.ok(r2.body.choices[0].message.content.length > 0);
+  } finally {
+    await server.shutdown();
+  }
+});
+
+test('DBATCH2 batching disabled (debounceMs=0) → all requests get real replies', async () => {
+  const server = await startServer({
+    batchDebounceMs: 0,
+    extraEnv: { FAKE_CLAUDE_TURN_DELAY: '0.05' },
+  });
+  try {
+    const send = (msg) =>
+      request(
+        server,
+        { method: 'POST', path: '/v1/chat/completions', headers: authed },
+        { model: 'session-g', messages: [{ role: 'user', content: msg }] },
+      );
+
+    const [r1, r2] = await Promise.all([send('a'), send('b')]);
+
+    // Both should get real replies (no batching).
+    assert.equal(r1.status, 200);
+    assert.ok(r1.body.choices[0].message.content.length > 0);
+    assert.equal(r2.status, 200);
+    assert.ok(r2.body.choices[0].message.content.length > 0);
+  } finally {
+    await server.shutdown();
+  }
+});
+
+test('DBATCH3 healthz shows batch config', async () => {
+  const server = await startServer({ batchDebounceMs: 2000 });
+  try {
+    const r = await request(server, { method: 'GET', path: '/healthz' });
+    assert.equal(r.status, 200);
+    assert.equal(r.body.batch_debounce_ms, 2000);
+    assert.equal(r.body.batch_pending, 0);
   } finally {
     await server.shutdown();
   }

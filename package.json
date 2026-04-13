@@ -1,8 +1,8 @@
 {
-  "name": "cc-telegram-bridge",
-  "version": "0.1.0",
+  "name": "cc-bridge",
+  "version": "0.3.0",
   "private": true,
-  "description": "Persistent Claude Code session exposed to OpenClaw as an OpenAI-compatible provider (Telegram-facing).",
+  "description": "Persistent Claude Code sessions exposed as an OpenAI-compatible provider. Multi-session bridge for Telegram, Signal, HTTP, and crons.",
   "type": "module",
   "main": "src/daemon.js",
   "scripts": {
