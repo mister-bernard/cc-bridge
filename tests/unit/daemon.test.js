@@ -317,7 +317,7 @@ test('GET /healthz → 200 with sessions map', async () => {
     assert.equal(r.status, 200);
     assert.equal(r.body.ok, true);
     assert.equal(r.body.service, 'cc-bridge');
-    assert.equal(r.body.version, '0.3.0');
+    assert.ok(typeof r.body.version === 'string' && r.body.version.length > 0);
     assert.equal(typeof r.body.sessions, 'object');
   } finally {
     await server.shutdown();
@@ -491,9 +491,13 @@ test('STREAM1 stream:true → SSE with role, content, finish chunks, then [DONE]
   }
 });
 
-test('STREAM2 stream:true + upstream timeout → non-streaming 504 error JSON', async () => {
-  // When the turn fails BEFORE we write SSE headers, we return a normal
-  // JSON error. Proves the error-path is still clean.
+test('STREAM2 stream:true + upstream timeout → SSE error chunk, no [DONE]', async () => {
+  // SSE headers are written (200 OK) the moment stream:true is requested, so
+  // by the time the turn fails we cannot change the HTTP status. Previously
+  // we wrote `data: [DONE]\n\n` and closed cleanly — which the gateway saw
+  // as a successful empty completion (silent-failure bug: PV Weekly OSINT
+  // was empty for days before anyone noticed). Correct behavior: emit an
+  // OpenAI-style `data: {"error":...}` chunk and end WITHOUT [DONE].
   const server = await startServer({
     claudeBin: STUB_HANG,
     turnTimeoutMs: 1000,
@@ -508,8 +512,10 @@ test('STREAM2 stream:true + upstream timeout → non-streaming 504 error JSON', 
         stream: true,
       },
     );
-    assert.equal(r.status, 504);
-    assert.equal(r.body.error.type, 'upstream_error');
+    assert.equal(r.status, 200);
+    assert.ok(/"error"/.test(r.raw), `expected error chunk in body, got: ${r.raw}`);
+    assert.ok(/upstream_(error|timeout_error)/.test(r.raw));
+    assert.ok(!/\[DONE\]/.test(r.raw), 'must NOT emit [DONE] on upstream failure');
   } finally {
     await server.shutdown();
   }

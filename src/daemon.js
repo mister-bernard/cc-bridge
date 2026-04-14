@@ -517,7 +517,11 @@ export function createServer({
                 };
                 res.write(`data: ${JSON.stringify(errPayload)}\n\n`);
               } catch {}
-              res.destroy();
+              // End (flushes the error chunk) — but deliberately DO NOT emit
+              // [DONE]. Clients that parse SSE see the error payload as the
+              // final signal. Critical: without this the gateway treated
+              // silent no-progress kills as successful empty completions.
+              res.end();
             }
           } else {
             const status = /timeout/i.test(err.message) ? 504 : 503;
