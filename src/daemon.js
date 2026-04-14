@@ -166,6 +166,13 @@ export function createServer({
     process.env.CC_BRIDGE_NO_PROGRESS_TIMEOUT_MS || '90000',
     10,
   ),
+  // Streaming keepalive cadence. Sent as empty-delta completion chunks (not
+  // SSE comments) so the OpenClaw gateway's llm-idle-timeout watchdog —
+  // which only resets on real chunks — doesn't fire during long tool turns.
+  keepaliveIntervalMs = parseInt(
+    process.env.CC_BRIDGE_KEEPALIVE_INTERVAL_MS || '10000',
+    10,
+  ),
   // Message batching: debounce rapid-fire messages for the same session
   // into a single combined CC turn. 0 = disabled. Default 1500ms.
   batchDebounceMs = parseInt(
@@ -470,7 +477,16 @@ export function createServer({
         // For streaming requests: write SSE headers immediately before the
         // turn starts. This prevents the gateway's llm-idle-timeout from
         // firing during tool calls (which produce no tokens for 30-90s).
-        // Keepalive comments every 15s keep the connection alive.
+        //
+        // Keepalive shape matters: an SSE comment line (`: keepalive\n\n`)
+        // keeps the TCP connection alive but the OpenClaw gateway's
+        // llm-idle-timeout watchdog only resets on real OpenAI completion
+        // chunks, not on comments. Send an empty-delta chunk every 10s so
+        // the watchdog sees activity. Caught after a slater-group turn
+        // ran for ~3min while the gateway aborted at 136s and looped on
+        // retries.
+        const keepaliveId = `chatcmpl-${Date.now()}`;
+        const keepaliveCreated = Math.floor(Date.now() / 1000);
         let keepaliveInterval = null;
         if (body.stream === true) {
           res.writeHead(200, {
@@ -480,8 +496,16 @@ export function createServer({
             'x-accel-buffering': 'no',
           });
           keepaliveInterval = setInterval(() => {
-            if (!res.writableEnded) res.write(': keepalive\n\n');
-          }, 15000);
+            if (res.writableEnded) return;
+            const chunk = {
+              id: keepaliveId,
+              object: 'chat.completion.chunk',
+              created: keepaliveCreated,
+              model: modelId,
+              choices: [{ index: 0, delta: {}, finish_reason: null }],
+            };
+            res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+          }, keepaliveIntervalMs);
         }
 
         let result;

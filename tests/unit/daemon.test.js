@@ -491,6 +491,60 @@ test('STREAM1 stream:true → SSE with role, content, finish chunks, then [DONE]
   }
 });
 
+test('STREAM3 stream:true → during long turn, keepalives are real chat.completion.chunk objects (not SSE comments)', async () => {
+  // The OpenClaw gateway's llm-idle-timeout watchdog only resets on real
+  // OpenAI chunks, not on SSE comment lines. If we send `: keepalive\n\n`
+  // the gateway aborts the request mid-turn and retries in a loop. This
+  // test forces a slow turn (1.2s) with a tight keepalive interval (200ms)
+  // and asserts at least one empty-delta chunk lands BEFORE the real
+  // assistant content.
+  const server = await startServer({
+    extraEnv: { FAKE_CLAUDE_TURN_DELAY: '1.2' },
+    keepaliveIntervalMs: 200,
+  });
+  try {
+    const r = await request(
+      server,
+      { method: 'POST', path: '/v1/chat/completions', headers: authed },
+      {
+        model: 'cc-bridge/session-g',
+        messages: [{ role: 'user', content: 'slow' }],
+        stream: true,
+      },
+    );
+    assert.equal(r.status, 200);
+    const events = r.raw
+      .split(/\n\n/)
+      .map((b) => b.trim())
+      .filter((b) => b.startsWith('data: '))
+      .map((b) => b.slice(6));
+    assert.ok(!r.raw.includes('\n: '), 'must NOT emit SSE comment lines');
+    assert.equal(events[events.length - 1], '[DONE]');
+    const parsed = events.slice(0, -1).map((e) => JSON.parse(e));
+    // Empty-delta keepalive: an object-shaped chunk with delta={} and no
+    // role/content. Must appear before the real role chunk.
+    const firstRoleIdx = parsed.findIndex(
+      (c) => c?.choices?.[0]?.delta?.role === 'assistant',
+    );
+    assert.ok(firstRoleIdx >= 0, 'role chunk present');
+    const keepalivesBeforeRole = parsed.slice(0, firstRoleIdx).filter((c) => {
+      const d = c?.choices?.[0]?.delta;
+      return d && Object.keys(d).length === 0;
+    });
+    assert.ok(
+      keepalivesBeforeRole.length >= 1,
+      `expected ≥1 empty-delta keepalive before role chunk, got ${keepalivesBeforeRole.length}`,
+    );
+    // Every chunk must have the OpenAI-shape so the gateway parses it.
+    for (const c of parsed) {
+      assert.equal(c.object, 'chat.completion.chunk');
+      assert.ok(Array.isArray(c.choices));
+    }
+  } finally {
+    await server.shutdown();
+  }
+});
+
 test('STREAM2 stream:true + upstream timeout → SSE error chunk, no [DONE]', async () => {
   // SSE headers are written (200 OK) the moment stream:true is requested, so
   // by the time the turn fails we cannot change the HTTP status. Previously
