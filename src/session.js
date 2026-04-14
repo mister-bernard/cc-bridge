@@ -3,10 +3,28 @@
 // SessionRegistry — maps session-id → ClaudeSupervisor. Lazy spawn, concurrent
 // gets for the same id return the same in-flight supervisor promise (no races).
 
+import fs from 'node:fs';
 import path from 'node:path';
 import { ClaudeSupervisor } from './supervisor.js';
 import { SessionStore } from './session-store.js';
 import { ConvoLog } from './convo-log.js';
+
+// Read the cross-session shared context file (if present). This file is
+// auto-injected into every session's system prompt so decisions made in one
+// session (e.g. G approving a subdomain in DM) are visible to others (e.g.
+// a group chat session waiting on that approval). Keep it short — this loads
+// on every spawn.
+function readSharedContext(claudeCwd) {
+  if (!claudeCwd) return '';
+  const file = path.join(claudeCwd, 'shared-context.md');
+  try {
+    const raw = fs.readFileSync(file, 'utf8').trim();
+    if (!raw) return '';
+    return `\n\n## Shared cross-session context (decisions, approvals, current state)\n\n${raw}\n\n---\n`;
+  } catch {
+    return '';
+  }
+}
 
 export class SessionRegistry {
   constructor({
@@ -166,10 +184,11 @@ export class SessionRegistry {
     // The history block is the primary memory mechanism — injected fresh on
     // every spawn so context survives restarts, kills, and idle expiry.
     const identityPrompt = this._resolveSystemPrompt(sessionId);
+    const sharedContext = readSharedContext(this.claudeCwd);
     const historyBlock = this.convoLog.historyBlock(sessionId);
-    const fullPrompt = historyBlock
-      ? (identityPrompt ? identityPrompt + historyBlock : historyBlock)
-      : identityPrompt;
+    const fullPrompt = [identityPrompt, sharedContext, historyBlock]
+      .filter(Boolean)
+      .join('');
     if (fullPrompt) {
       args.push('--append-system-prompt', fullPrompt);
     }

@@ -275,8 +275,8 @@ export function createServer({
     });
 
     try {
-      // --- /healthz (no auth) -------------------------------------------
-      if (req.method === 'GET' && url.pathname === '/healthz') {
+      // --- /healthz + /health (no auth) ---------------------------------
+      if (req.method === 'GET' && (url.pathname === '/healthz' || url.pathname === '/health')) {
         sendJson(res, 200, {
           ok: true,
           service: 'cc-bridge',
@@ -498,10 +498,26 @@ export function createServer({
             err: err.message,
           });
           if (body.stream === true) {
-            // Headers already sent — surface error as empty stream.
+            // Headers already sent (200 OK committed) — surface error as an
+            // OpenAI-style SSE error chunk, then destroy the connection
+            // without writing [DONE]. Premature close + error payload forces
+            // the gateway to treat this as a failure instead of a silent
+            // empty response. Without this, no-progress kills looked like
+            // successful empty completions and broke silently (e.g. PV
+            // Weekly OSINT returning empty for weeks before anyone noticed).
             if (!res.writableEnded) {
-              res.write('data: [DONE]\n\n');
-              res.end();
+              try {
+                const errPayload = {
+                  error: {
+                    type: /timeout|stuck|no stdout/i.test(err.message)
+                      ? 'upstream_timeout_error'
+                      : 'upstream_error',
+                    message: err.message,
+                  },
+                };
+                res.write(`data: ${JSON.stringify(errPayload)}\n\n`);
+              } catch {}
+              res.destroy();
             }
           } else {
             const status = /timeout/i.test(err.message) ? 504 : 503;
