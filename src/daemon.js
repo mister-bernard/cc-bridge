@@ -154,7 +154,7 @@ export function createServer({
   systemPrompt: systemPromptOverride,
   sessionExtraArgsMap = parseSessionExtraArgsMap(),
   turnTimeoutMs = parseInt(
-    process.env.CC_BRIDGE_TURN_TIMEOUT_MS || '45000',
+    process.env.CC_BRIDGE_TURN_TIMEOUT_MS || '120000',
     10,
   ),
   idleTimeoutMs = parseIdleTimeouts(),
@@ -280,7 +280,7 @@ export function createServer({
         sendJson(res, 200, {
           ok: true,
           service: 'cc-bridge',
-          version: '0.6.0',
+          version: '0.6.1',
           prompts_dir: PROMPTS_DIR,
           batch_debounce_ms: batchDebounceMs,
           batch_pending: batcher.pendingCount,
@@ -464,24 +464,55 @@ export function createServer({
           return;
         }
 
+        const id = `chatcmpl-${Date.now()}`;
+        const created = Math.floor(Date.now() / 1000);
+
+        // For streaming requests: write SSE headers immediately before the
+        // turn starts. This prevents the gateway's llm-idle-timeout from
+        // firing during tool calls (which produce no tokens for 30-90s).
+        // Keepalive comments every 15s keep the connection alive.
+        let keepaliveInterval = null;
+        if (body.stream === true) {
+          res.writeHead(200, {
+            'content-type': 'text/event-stream; charset=utf-8',
+            'cache-control': 'no-cache, no-transform',
+            'connection': 'keep-alive',
+            'x-accel-buffering': 'no',
+          });
+          keepaliveInterval = setInterval(() => {
+            if (!res.writableEnded) res.write(': keepalive\n\n');
+          }, 15000);
+        }
+
         let result;
         try {
           result = await sup.sendPrompt(finalPrompt, {
             timeoutMs: turnTimeoutMs,
           });
         } catch (err) {
+          if (keepaliveInterval) clearInterval(keepaliveInterval);
           log({
             evt: 'turn.fail',
             lvl: 'error',
             model: modelId,
             err: err.message,
           });
-          const status = /timeout/i.test(err.message) ? 504 : 503;
-          sendJson(res, status, {
-            error: { type: 'upstream_error', message: err.message },
-          });
+          if (body.stream === true) {
+            // Headers already sent — surface error as empty stream.
+            if (!res.writableEnded) {
+              res.write('data: [DONE]\n\n');
+              res.end();
+            }
+          } else {
+            const status = /timeout/i.test(err.message) ? 504 : 503;
+            sendJson(res, status, {
+              error: { type: 'upstream_error', message: err.message },
+            });
+          }
           return;
         }
+
+        if (keepaliveInterval) clearInterval(keepaliveInterval);
 
         // Log this exchange. This is the memory mechanism — injected into the
         // system prompt on every subsequent spawn so context is never lost.
@@ -490,20 +521,8 @@ export function createServer({
         // Clean up boot message now that the real response is ready.
         bootNotifier.clearBoot(modelId);
 
-        const id = `chatcmpl-${Date.now()}`;
-        const created = Math.floor(Date.now() / 1000);
-
         if (body.stream === true) {
-          // SSE — the path most OpenAI-speaking gateways take (they set
-          // stream:true regardless of the caller). Emit role → content →
-          // finish → [DONE]. Claude returns the whole turn at once so
-          // there's nothing to stream progressively.
-          res.writeHead(200, {
-            'content-type': 'text/event-stream; charset=utf-8',
-            'cache-control': 'no-cache, no-transform',
-            'connection': 'keep-alive',
-            'x-accel-buffering': 'no',
-          });
+          // Emit role → content → finish → [DONE].
           const emit = (chunk) =>
             res.write(`data: ${JSON.stringify(chunk)}\n\n`);
           emit({
