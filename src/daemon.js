@@ -52,9 +52,51 @@ function listSessionIds() {
   return raw.split(',').map((s) => s.trim()).filter(Boolean);
 }
 
+// Per-session model override (JSON map: sessionId → model string).
+// Falls back to the global CC_BRIDGE_MODEL for anything not in the map.
+// Example: {"session-yujin": "haiku"} — run yujin IG replies on haiku
+// while session-g / session-slater stay on the global sonnet default.
+function parseSessionModelMap() {
+  const raw = (process.env.CC_BRIDGE_SESSION_MODELS || '').trim();
+  if (!raw) return null;
+  try {
+    const m = JSON.parse(raw);
+    if (m && typeof m === 'object' && !Array.isArray(m)) return m;
+  } catch {}
+  return null;
+}
+
+// Sessions that should run stateless: no shared-context injection, no convo-log
+// injection, and turns are NOT appended to the convo log. Used for fan-in
+// sessions like session-yujin (Aktiom IG auto-replies) where many independent
+// users share one cc-bridge session and would otherwise contaminate each
+// other's conversation context. Caller is responsible for sending full
+// per-thread context in each prompt.
+// Comma-separated list, e.g. CC_BRIDGE_SESSION_STATELESS=session-yujin
+function parseSessionStatelessSet() {
+  const raw = (process.env.CC_BRIDGE_SESSION_STATELESS || '').trim();
+  if (!raw) return null;
+  const set = new Set(raw.split(',').map((s) => s.trim()).filter(Boolean));
+  return set.size ? set : null;
+}
+
 // Per-session extra CLI args (JSON map: sessionId → string[]).
 function parseSessionExtraArgsMap() {
   const raw = (process.env.CC_BRIDGE_SESSION_EXTRA_ARGS || '').trim();
+  if (!raw) return null;
+  try {
+    const m = JSON.parse(raw);
+    if (m && typeof m === 'object' && !Array.isArray(m)) return m;
+  } catch {}
+  return null;
+}
+
+// Per-session CWD override (JSON map: sessionId → absolute path).
+// Used to route L0/public sessions into workspace-l0 so they load CLAUDE-l0.md
+// instead of the full CLAUDE.md. Any session id not in the map falls back to
+// the global claudeCwd.
+function parseCwdMap() {
+  const raw = (process.env.CC_BRIDGE_SESSION_CWD || '').trim();
   if (!raw) return null;
   try {
     const m = JSON.parse(raw);
@@ -149,10 +191,13 @@ export function createServer({
   claudeBin = process.env.CLAUDE_BIN || 'claude',
   claudeCwd = process.env.CLAUDE_CWD || process.cwd(),
   model = process.env.CC_BRIDGE_MODEL || 'sonnet',
+  sessionModelMap = parseSessionModelMap(),
+  sessionStatelessSet = parseSessionStatelessSet(),
   // systemPrompt override for tests. In production, prompts are loaded from
   // files in PROMPTS_DIR (prompts/<session-id>.txt → prompts/default.txt).
   systemPrompt: systemPromptOverride,
   sessionExtraArgsMap = parseSessionExtraArgsMap(),
+  sessionCwdMap = parseCwdMap(),
   turnTimeoutMs = parseInt(
     process.env.CC_BRIDGE_TURN_TIMEOUT_MS || '120000',
     10,
@@ -223,12 +268,46 @@ export function createServer({
     return [];
   };
 
+  // Per-session CWD: explicit map entry → L0 convention → global claudeCwd fallback.
+  // Convention: sessions containing "groups", "wire", or "public" use workspace-l0.
+  const L0_CWD = process.env.CC_BRIDGE_L0_CWD || path.join(path.dirname(claudeCwd), 'workspace-l0');
+  const resolveSessionCwd = (sessionId) => {
+    if (sessionCwdMap && typeof sessionCwdMap[sessionId] === 'string') {
+      return sessionCwdMap[sessionId];
+    }
+    if (sessionId && (
+      sessionId.includes('groups') ||
+      sessionId.startsWith('wire') ||
+      sessionId.startsWith('public')
+    )) {
+      return fs.existsSync(L0_CWD) ? L0_CWD : null;
+    }
+    return null; // null = fall back to global claudeCwd
+  };
+
+  // Stateless predicate — true means: skip history injection on spawn AND
+  // skip writing this session's turns to ConvoLog.
+  const resolveStateless = (sessionId) => {
+    if (!sessionStatelessSet) return false;
+    return sessionStatelessSet.has(sessionId);
+  };
+
+  // Resolve per-session model: explicit map entry → global model fallback.
+  const resolveModel = (sessionId) => {
+    if (sessionModelMap && typeof sessionModelMap[sessionId] === 'string') {
+      return sessionModelMap[sessionId];
+    }
+    return model || '';
+  };
+
   const registry = new SessionRegistry({
     claudeBin,
     claudeCwd,
+    cwdBySession: resolveSessionCwd,
     systemPrompt: resolveSystemPrompt,
     extraArgsBySession: resolveExtraArgs,
-    model,
+    statelessFor: resolveStateless,
+    model: resolveModel,
     extraEnv,
     idleTimeoutMs,
     sweepIntervalMs,

@@ -30,6 +30,12 @@ export class SessionRegistry {
   constructor({
     claudeBin,
     claudeCwd,
+    // cwdBySession: function(sessionId) → string | null.
+    // When provided, overrides the working directory for specific sessions.
+    // Used to route L0 sessions (wire, groups) into workspace-l0/ so they
+    // load CLAUDE-l0.md instead of the full CLAUDE.md. Falls back to
+    // claudeCwd for any session not matched by the function.
+    cwdBySession = null,
     // systemPrompt can be a string (same prompt for every session) OR a
     // function(sessionId) → string (per-session customization). Function
     // shape lets us route session-g through the G-identity prompt while
@@ -42,6 +48,14 @@ export class SessionRegistry {
     // claude CLI args. Used for --disallowedTools on session-groups so
     // dangerous tools are blocked at the CC level, not just in the prompt.
     extraArgsBySession = null,
+    // statelessFor: function(sessionId) → bool. When true, this session
+    // skips ConvoLog injection AND skips appending its turns to ConvoLog.
+    // Used for fan-in sessions like session-yujin (Aktiom IG auto-replies)
+    // where many independent users share one cc-bridge session and would
+    // otherwise contaminate each other's conversation context. The caller
+    // (auto-responder) is responsible for sending full per-thread context
+    // in each prompt.
+    statelessFor = () => false,
     onLog = () => {},
     // Idle timeout in ms. Three shapes accepted:
     //   - 0 (or falsy): never expire (default — preserves v0.1 behavior)
@@ -56,11 +70,17 @@ export class SessionRegistry {
   }) {
     this.claudeBin = claudeBin;
     this.claudeCwd = claudeCwd;
+    this.cwdBySession = typeof cwdBySession === 'function' ? cwdBySession : null;
     this.systemPrompt = systemPrompt;
+    // model can be a plain string (same for every session) OR a
+    // function(sessionId) → string (per-session override). Per-session
+    // overrides let us run cheap sessions (e.g. session-yujin on haiku for
+    // IG auto-replies) alongside the global default.
     this.model = model;
     this.extraEnv = extraEnv;
     this.extraArgs = extraArgs;
     this.extraArgsBySession = extraArgsBySession;
+    this.statelessFor = typeof statelessFor === 'function' ? statelessFor : () => false;
     this.onLog = onLog;
     this.idleTimeoutMs = idleTimeoutMs;
     this.sweepIntervalMs = sweepIntervalMs;
@@ -88,11 +108,26 @@ export class SessionRegistry {
     this._sweeper = null;
   }
 
+  _resolveCwd(sessionId) {
+    if (this.cwdBySession) {
+      const override = this.cwdBySession(sessionId);
+      if (override) return override;
+    }
+    return this.claudeCwd;
+  }
+
   _resolveSystemPrompt(sessionId) {
     if (typeof this.systemPrompt === 'function') {
       return this.systemPrompt(sessionId) || '';
     }
     return this.systemPrompt || '';
+  }
+
+  _resolveModel(sessionId) {
+    if (typeof this.model === 'function') {
+      return this.model(sessionId) || '';
+    }
+    return this.model || '';
   }
 
   _resolveExtraArgs(sessionId) {
@@ -177,27 +212,32 @@ export class SessionRegistry {
       '--no-session-persistence',   // -p mode doesn't write ~/.claude/sessions/
       '--permission-mode', 'bypassPermissions',
     ];
-    if (this.model) {
-      args.push('--model', this.model);
+    const modelForSession = this._resolveModel(sessionId);
+    if (modelForSession) {
+      args.push('--model', modelForSession);
     }
-    // Build the system prompt: session identity + conversation history block.
-    // The history block is the primary memory mechanism — injected fresh on
-    // every spawn so context survives restarts, kills, and idle expiry.
+    // Build the system prompt: session identity + (optional) shared
+    // cross-session context + (optional) conversation history block.
+    // For stateless sessions (fan-in responders like session-yujin), skip
+    // both shared context and history injection — the caller supplies full
+    // per-thread context in each prompt.
+    const stateless = this.statelessFor(sessionId);
     const identityPrompt = this._resolveSystemPrompt(sessionId);
-    const sharedContext = readSharedContext(this.claudeCwd);
-    const historyBlock = this.convoLog.historyBlock(sessionId);
+    const sharedContext = stateless ? '' : readSharedContext(this._resolveCwd(sessionId));
+    const historyBlock = stateless ? '' : this.convoLog.historyBlock(sessionId);
     const fullPrompt = [identityPrompt, sharedContext, historyBlock]
       .filter(Boolean)
       .join('');
     if (fullPrompt) {
       args.push('--append-system-prompt', fullPrompt);
     }
-    const msgCount = this.convoLog.count(sessionId);
+    const msgCount = stateless ? 0 : this.convoLog.count(sessionId);
     this.onLog({
       evt: 'session.spawn',
       session: sessionId,
       history_msgs: msgCount,
       resuming: msgCount > 0,
+      stateless,
     });
     return args.concat(this._resolveExtraArgs(sessionId));
   }
@@ -209,6 +249,7 @@ export class SessionRegistry {
 
   /** Log a turn to the conversation log. Called by the daemon after each exchange. */
   logTurn(sessionId, userText, assistantText) {
+    if (this.statelessFor(sessionId)) return;
     this.convoLog.append(sessionId, 'user', userText);
     this.convoLog.append(sessionId, 'assistant', assistantText);
   }
@@ -230,7 +271,7 @@ export class SessionRegistry {
         // Pass a factory so each respawn re-evaluates --resume with the
         // latest saved session UUID (set after the first successful turn).
         args: () => this._buildArgs(id),
-        cwd: this.claudeCwd,
+        cwd: this._resolveCwd(id),
         // Explicitly unset ANTHROPIC_API_KEY so CC uses OAuth from
         // ~/.claude/.credentials.json. An inherited key would silently
         // override OAuth and start billing.
