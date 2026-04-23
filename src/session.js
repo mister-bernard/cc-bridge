@@ -275,7 +275,16 @@ export class SessionRegistry {
         // Explicitly unset ANTHROPIC_API_KEY so CC uses OAuth from
         // ~/.claude/.credentials.json. An inherited key would silently
         // override OAuth and start billing.
-        env: { ANTHROPIC_API_KEY: '', ...this.extraEnv },
+        //
+        // SESSION_ID + CC_BRIDGE_PORT are injected so tools running inside
+        // the CC turn (notably tg-send-logged.sh) can self-identify as a
+        // cc-bridge origin and register with Telegraph for reply routing.
+        env: {
+          ANTHROPIC_API_KEY: '',
+          SESSION_ID: id,
+          CC_BRIDGE_PORT: process.env.BRIDGE_PORT || process.env.PORT || '18901',
+          ...this.extraEnv,
+        },
         noProgressTimeoutMs: this.noProgressTimeoutMs,
         onLog: (evt) => this.onLog({ session: id, ...evt }),
       });
