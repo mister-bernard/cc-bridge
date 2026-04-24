@@ -208,3 +208,283 @@
 {"role":"assistant","content":"ok (stub reply)","ts":1776198922070}
 {"role":"user","content":"b","ts":1776198922121}
 {"role":"assistant","content":"ok (stub reply)","ts":1776198922121}
+{"role":"user","content":"hi","ts":1776198928108}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198928108}
+{"role":"user","content":"hello","ts":1776198928998}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198928998}
+{"role":"user","content":"hi","ts":1776198929121}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198929122}
+{"role":"user","content":"array form","ts":1776198929245}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198929245}
+{"role":"user","content":"latest","ts":1776198929379}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198929379}
+{"role":"user","content":"q1","ts":1776198929608}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198929608}
+{"role":"user","content":"q2","ts":1776198929711}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198929711}
+{"role":"user","content":"q3","ts":1776198929817}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198929817}
+{"role":"user","content":"hi","ts":1776198931627}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198931627}
+{"role":"user","content":"back?","ts":1776198932261}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198932261}
+{"role":"user","content":"hi g","ts":1776198932325}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198932325}
+{"role":"user","content":"hi","ts":1776198933023}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198933023}
+{"role":"user","content":"[message 1 of 2]\nfirst\n\n[message 2 of 2]\nsecond","ts":1776198934544}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198934544}
+{"role":"user","content":"a","ts":1776198934704}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198934705}
+{"role":"user","content":"b","ts":1776198934756}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198934756}
+{"role":"user","content":"hi","ts":1776198972550}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198972550}
+{"role":"user","content":"hello","ts":1776198973381}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198973381}
+{"role":"user","content":"hi","ts":1776198973445}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198973445}
+{"role":"user","content":"array form","ts":1776198973505}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198973505}
+{"role":"user","content":"latest","ts":1776198973577}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198973577}
+{"role":"user","content":"q1","ts":1776198973758}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198973758}
+{"role":"user","content":"q2","ts":1776198973861}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198973861}
+{"role":"user","content":"q3","ts":1776198973963}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198973963}
+{"role":"user","content":"hi","ts":1776198975768}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198975768}
+{"role":"user","content":"back?","ts":1776198976452}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198976452}
+{"role":"user","content":"hi g","ts":1776198976524}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198976524}
+{"role":"user","content":"hi","ts":1776198977257}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198977257}
+{"role":"user","content":"[message 1 of 2]\nfirst\n\n[message 2 of 2]\nsecond","ts":1776198978655}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198978656}
+{"role":"user","content":"a","ts":1776198978768}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198978768}
+{"role":"user","content":"b","ts":1776198978820}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198978827}
+{"role":"user","content":"hi","ts":1776198991513}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198991514}
+{"role":"user","content":"hello","ts":1776198992432}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198992432}
+{"role":"user","content":"hi","ts":1776198992529}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198992529}
+{"role":"user","content":"array form","ts":1776198992619}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198992619}
+{"role":"user","content":"latest","ts":1776198992713}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198992713}
+{"role":"user","content":"q1","ts":1776198992973}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198992974}
+{"role":"user","content":"q2","ts":1776198993076}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198993076}
+{"role":"user","content":"q3","ts":1776198993178}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198993178}
+{"role":"user","content":"hi","ts":1776198994989}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198994989}
+{"role":"user","content":"back?","ts":1776198995733}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198995733}
+{"role":"user","content":"hi g","ts":1776198995854}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198995855}
+{"role":"user","content":"hi","ts":1776198997254}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198997256}
+{"role":"user","content":"[message 1 of 2]\nfirst\n\n[message 2 of 2]\nsecond","ts":1776198998693}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198998693}
+{"role":"user","content":"a","ts":1776198998808}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198998808}
+{"role":"user","content":"b","ts":1776198998861}
+{"role":"assistant","content":"ok (stub reply)","ts":1776198998861}
+{"role":"user","content":"hi","ts":1776204450667}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204450667}
+{"role":"user","content":"hello","ts":1776204451382}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204451382}
+{"role":"user","content":"hi","ts":1776204451439}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204451439}
+{"role":"user","content":"array form","ts":1776204451492}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204451492}
+{"role":"user","content":"latest","ts":1776204451546}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204451546}
+{"role":"user","content":"q1","ts":1776204451710}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204451710}
+{"role":"user","content":"q2","ts":1776204451811}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204451811}
+{"role":"user","content":"q3","ts":1776204451912}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204451912}
+{"role":"user","content":"hi","ts":1776204453693}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204453694}
+{"role":"user","content":"back?","ts":1776204454321}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204454321}
+{"role":"user","content":"hi g","ts":1776204454379}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204454379}
+{"role":"user","content":"hi","ts":1776204455060}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204455060}
+{"role":"user","content":"slow","ts":1776204456324}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204456324}
+{"role":"user","content":"[message 1 of 2]\nfirst\n\n[message 2 of 2]\nsecond","ts":1776204457837}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204457837}
+{"role":"user","content":"a","ts":1776204457942}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204457943}
+{"role":"user","content":"b","ts":1776204457993}
+{"role":"assistant","content":"ok (stub reply)","ts":1776204457993}
+{"role":"user","content":"hello","ts":1776236417848}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236417848}
+{"role":"user","content":"hi","ts":1776236418024}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236418025}
+{"role":"user","content":"array form","ts":1776236418191}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236418191}
+{"role":"user","content":"latest","ts":1776236418420}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236418420}
+{"role":"user","content":"q1","ts":1776236418814}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236418814}
+{"role":"user","content":"q2","ts":1776236418919}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236418919}
+{"role":"user","content":"q3","ts":1776236419027}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236419027}
+{"role":"user","content":"hi","ts":1776236420921}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236420921}
+{"role":"user","content":"back?","ts":1776236421631}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236421631}
+{"role":"user","content":"hi g","ts":1776236421777}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236421777}
+{"role":"user","content":"hi","ts":1776236422586}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236422586}
+{"role":"user","content":"slow","ts":1776236423903}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236423904}
+{"role":"user","content":"[message 1 of 2]\nfirst\n\n[message 2 of 2]\nsecond","ts":1776236425392}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236425392}
+{"role":"user","content":"a","ts":1776236425619}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236425619}
+{"role":"user","content":"b","ts":1776236425671}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236425671}
+{"role":"user","content":"hello","ts":1776236437826}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236437826}
+{"role":"user","content":"hi","ts":1776236437886}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236437886}
+{"role":"user","content":"array form","ts":1776236437940}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236437940}
+{"role":"user","content":"latest","ts":1776236437993}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236437993}
+{"role":"user","content":"q1","ts":1776236438157}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236438157}
+{"role":"user","content":"q2","ts":1776236438258}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236438258}
+{"role":"user","content":"q3","ts":1776236438359}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236438359}
+{"role":"user","content":"hi","ts":1776236440119}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236440119}
+{"role":"user","content":"back?","ts":1776236440746}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236440746}
+{"role":"user","content":"hi g","ts":1776236440802}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236440802}
+{"role":"user","content":"hi","ts":1776236441483}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236441483}
+{"role":"user","content":"slow","ts":1776236442739}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236442739}
+{"role":"user","content":"[message 1 of 2]\nfirst\n\n[message 2 of 2]\nsecond","ts":1776236444135}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236444135}
+{"role":"user","content":"a","ts":1776236444249}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236444249}
+{"role":"user","content":"b","ts":1776236444299}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236444299}
+{"role":"user","content":"hello","ts":1776236504272}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236504272}
+{"role":"user","content":"hi","ts":1776236504329}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236504329}
+{"role":"user","content":"array form","ts":1776236504382}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236504382}
+{"role":"user","content":"latest","ts":1776236504435}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236504436}
+{"role":"user","content":"q1","ts":1776236504599}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236504599}
+{"role":"user","content":"q2","ts":1776236504700}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236504700}
+{"role":"user","content":"q3","ts":1776236504801}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236504801}
+{"role":"user","content":"hi g","ts":1776236506586}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236506586}
+{"role":"user","content":"hi","ts":1776236506638}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236506638}
+{"role":"user","content":"back?","ts":1776236507267}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236507267}
+{"role":"user","content":"hi g","ts":1776236507320}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236507320}
+{"role":"user","content":"hi","ts":1776236508006}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236508006}
+{"role":"user","content":"slow","ts":1776236509261}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236509262}
+{"role":"user","content":"[message 1 of 2]\nfirst\n\n[message 2 of 2]\nsecond","ts":1776236510662}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236510662}
+{"role":"user","content":"a","ts":1776236510765}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236510765}
+{"role":"user","content":"b","ts":1776236510816}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236510816}
+{"role":"user","content":"hello","ts":1776236809570}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236809570}
+{"role":"user","content":"hi","ts":1776236809624}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236809624}
+{"role":"user","content":"array form","ts":1776236809676}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236809677}
+{"role":"user","content":"latest","ts":1776236809733}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236809733}
+{"role":"user","content":"q1","ts":1776236809903}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236809903}
+{"role":"user","content":"q2","ts":1776236810004}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236810004}
+{"role":"user","content":"q3","ts":1776236810105}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236810105}
+{"role":"user","content":"hi g","ts":1776236811889}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236811889}
+{"role":"user","content":"hi","ts":1776236811943}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236811943}
+{"role":"user","content":"back?","ts":1776236812571}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236812571}
+{"role":"user","content":"hi g","ts":1776236812623}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236812623}
+{"role":"user","content":"hi","ts":1776236813303}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236813303}
+{"role":"user","content":"slow","ts":1776236814557}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236814557}
+{"role":"user","content":"[message 1 of 2]\nfirst\n\n[message 2 of 2]\nsecond","ts":1776236815943}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236815944}
+{"role":"user","content":"a","ts":1776236816047}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236816047}
+{"role":"user","content":"b","ts":1776236816098}
+{"role":"assistant","content":"ok (stub reply)","ts":1776236816098}
+{"role":"user","content":"hi","ts":1776849199186}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849199186}
+{"role":"user","content":"hello","ts":1776849199898}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849199898}
+{"role":"user","content":"hi","ts":1776849199953}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849199953}
+{"role":"user","content":"array form","ts":1776849200006}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849200007}
+{"role":"user","content":"latest","ts":1776849200062}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849200062}
+{"role":"user","content":"q1","ts":1776849200226}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849200226}
+{"role":"user","content":"q2","ts":1776849200327}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849200327}
+{"role":"user","content":"q3","ts":1776849200428}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849200428}
+{"role":"user","content":"hi g","ts":1776849202197}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849202197}
+{"role":"user","content":"hi","ts":1776849202248}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849202248}
+{"role":"user","content":"back?","ts":1776849202874}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849202874}
+{"role":"user","content":"hi g","ts":1776849202926}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849202926}
+{"role":"user","content":"hi","ts":1776849203603}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849203603}
+{"role":"user","content":"slow","ts":1776849204854}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849204854}
+{"role":"user","content":"[message 1 of 2]\nfirst\n\n[message 2 of 2]\nsecond","ts":1776849206245}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849206245}
+{"role":"user","content":"a","ts":1776849206352}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849206352}
+{"role":"user","content":"b","ts":1776849206403}
+{"role":"assistant","content":"ok (stub reply)","ts":1776849206403}
