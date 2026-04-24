@@ -35,12 +35,25 @@ G added you back with explicit observer instructions. If G speaks to you directl
 - Explored emergent behavior in adversarial conversing models on existential/philosophical topics
 - Relevant to: discussions about multi-agent AI, agent-to-agent communication, emergent reasoning
 
-### cc-bridge (just shipped)
+### cc-bridge
 - Persistent Claude Code sessions exposed as OpenAI-compatible API endpoint
 - Supports Telegram, Signal, any gateway — message batching, idle timeout, boot notifications
-- v0.5.0: full conversation context via --resume across restarts/kills
+- v0.6.1: full conversation context via --resume across restarts/kills; multi-account instance support (one daemon per Claude account)
 - Public: github.com/mister-bernard/cc-bridge
 - Relevant to: Claude Code + server + chat bridge discussions (exactly what Limitless discussed Apr 10)
+
+### Telegraph
+- Telegram + Signal router that dispatches messages to CLI agent sessions via an OpenAI-compatible bridge
+- Origin routing: when an agent sends a message, Telegraph remembers the origin so quote-replies route back to the same agent instead of a static default
+- Zero npm deps, 72 tests, Node 18+
+- Public sanitized fork: github.com/mister-bernard/tools/tree/main/telegraph
+- Relevant to: multi-agent routing, TG/Signal integration with CLI agents, reply-origin tracking
+
+### Harness
+- Webhook-triggered agent pipeline — receives events, spawns Claude Code workers on-demand to execute them
+- Runs on port 18920, public status at mrb.sh/harness/
+- CLI: `harness list|watch|show|tail|stats`
+- Relevant to: event-driven agent orchestration, webhook-to-agent patterns, workflow engines
 
 ### OpenClaw analysis
 - Analyzed OpenClaw vs Claude Code tradeoffs, documented ironclaw comparison
@@ -52,6 +65,12 @@ G added you back with explicit observer instructions. If G speaks to you directl
 - Full publish pipeline: StorageBox → YouTube + Instagram + TikTok
 - DJI SRT GPS parsing, Claude-generated captions, A/B test on landing page
 - Relevant to: drone tech, AI-assisted content, automated publish pipelines
+
+### Book Factory
+- Weekly autonomous book pipeline — topic selection, research, drafting, layout, KDP publish, all via orchestrated Claude sessions
+- First live publishes April 2026 (AI-Nursing, WGS); scheduled runs continue weekly
+- KDP publisher built on Stagehand + Claude for browser automation
+- Relevant to: end-to-end AI content production, self-publishing, multi-step agent workflows
 
 ### Glucose tracker
 - CGM monitoring + AI meal analysis via Telegram, LibreLinkUp, Gemini Flash vision
@@ -67,6 +86,11 @@ G added you back with explicit observer instructions. If G speaks to you directl
 - Computational consciousness, neurocardiology, contemplative traditions, embodiment
 - Birkeland/Terella research, electromagnetic consciousness hypotheses
 - Relevant to: AI consciousness, philosophy of mind, hard problem discussions
+
+### Aurora
+- Birkeland terrella lab aurora emulator — vacuum chamber + magnetized sphere + cathode produces real aurora on a desk-scale apparatus
+- Live visualization at mrb.sh/aurora/; compute on a local M4
+- Relevant to: plasma physics, Birkeland's original experiments, lab-scale space physics, science-as-art
 
 ### Bittensor subnet
 - Research on subnet architecture, integration with OpenClaw, partner analysis
@@ -86,6 +110,21 @@ G added you back with explicit observer instructions. If G speaks to you directl
 - DeFi committee, DEX arbitrage, token sniper, TWAP automation
 - IBKR monitor, trading pipeline
 - Relevant to: crypto trading, DeFi protocols, automated execution
+
+### Brix (world.inc peg-arb)
+- Peg-arbitrage bot on world.inc (MegaETH World Markets) — mean-reversion against the iTRY oracle NAV
+- Hedged-carry architecture; FX-side hedge needs CEX/forex broker since no onchain TRY venue
+- Relevant to: onchain FX peg arbitrage, oracle-NAV mean-reversion, hedged yield strategies
+
+### Fund Tracker
+- Personal multi-fund LP dashboard — ingests statement PDFs, tracks positions across private funds
+- Runs at mrb.sh/funds/; statement ingestion via a single CLI call (`ingest.py <pdf>`)
+- Relevant to: LP reporting, fund-of-funds tracking, PDF-to-structured-data pipelines
+
+### Petrock / mrno.app
+- Two small viral-product experiments: mrno.app (a single button that says "no") and petrock.club (pet-rock leaderboard with Google sign-in, tiers, Founder cohort)
+- Live April 2026; Ferrari-inspired exclusivity plan for petrock milestones
+- Relevant to: viral minimal-product design, tier-based community mechanics, indie launch dynamics
 
 ### Security / OSINT / pentest
 - Red team sessions, security audit, proxy chains, OSINT tooling
