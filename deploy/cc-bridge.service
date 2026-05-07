@@ -1,12 +1,17 @@
 [Unit]
-Description=cc-bridge - persistent Claude Code session exposed to OpenClaw
+Description=cc-bridge — persistent Claude Code sessions over OpenAI-compatible HTTP
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/openclaw/projects/cc-bridge
-ExecStart=/usr/bin/env node /home/openclaw/projects/cc-bridge/src/daemon.js
+
+# Replace @CC_BRIDGE_DIR@ with the absolute path to your cc-bridge clone:
+#   sed "s|@CC_BRIDGE_DIR@|$PWD|g" deploy/cc-bridge.service \
+#     > ~/.config/systemd/user/cc-bridge.service
+#   systemctl --user daemon-reload && systemctl --user enable --now cc-bridge
+WorkingDirectory=@CC_BRIDGE_DIR@
+ExecStart=/usr/bin/env node @CC_BRIDGE_DIR@/src/daemon.js
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
@@ -19,13 +24,11 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=cc-bridge
 
-# Secrets + runtime config come from the bridge .env. All non-secret
-# config (port, model, timeouts, claude path, cwd) is ALSO in .env so
-# this unit file stays secret-free.
-EnvironmentFile=/home/openclaw/projects/cc-bridge/.env
+# Secrets + runtime config come from the bridge .env. Keep this unit
+# secret-free — everything tunable lives in `.env` (see .env.example).
+EnvironmentFile=@CC_BRIDGE_DIR@/.env
 
 # Constants that must not be overridable from .env.
-Environment=HOME=/home/openclaw
 Environment=NODE_ENV=production
 
 # Claude Code uses OAuth from ~/.claude/.credentials.json (Max sub, $0).
@@ -35,7 +38,7 @@ Environment=ANTHROPIC_API_KEY=
 
 # Intentionally NO sd_notify / WatchdogSec. Liveness is enforced by
 # Restart=on-failure plus the daemon's per-child supervisor (see
-# src/supervisor.js). See research/ops-plan.md §2 for reasoning.
+# src/supervisor.js).
 
 [Install]
 WantedBy=default.target

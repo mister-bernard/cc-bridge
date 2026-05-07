@@ -2,7 +2,12 @@
   "name": "cc-bridge",
   "version": "0.3.0",
   "private": true,
-  "description": "Persistent Claude Code sessions exposed as an OpenAI-compatible provider. Multi-session bridge for Telegram, Signal, HTTP, and crons.",
+  "description": "Persistent Claude Code sessions exposed as an OpenAI-compatible /v1/chat/completions endpoint. Multi-session bridge for Telegram, Signal, HTTP, and cron-driven workflows.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mister-bernard/cc-bridge.git"
+  },
   "type": "module",
   "main": "src/daemon.js",
   "scripts": {

@@ -20,10 +20,20 @@ import path from 'node:path';
 
 const DEFAULT_INJECT_TURNS = 30; // last N user+assistant pairs to inject
 
+// Label used to tag the assistant's turns in the injected history block.
+// Override with CC_BRIDGE_ASSISTANT_LABEL or via the constructor option.
+const DEFAULT_ASSISTANT_LABEL = process.env.CC_BRIDGE_ASSISTANT_LABEL || 'Assistant';
+
 export class ConvoLog {
-  constructor({ logsDir, injectTurns = DEFAULT_INJECT_TURNS, onLog = () => {} } = {}) {
+  constructor({
+    logsDir,
+    injectTurns = DEFAULT_INJECT_TURNS,
+    assistantLabel = DEFAULT_ASSISTANT_LABEL,
+    onLog = () => {},
+  } = {}) {
     this.logsDir = logsDir || path.join(process.cwd(), 'conversations');
     this.injectTurns = injectTurns;
+    this.assistantLabel = assistantLabel;
     this.onLog = onLog;
     try {
       fs.mkdirSync(this.logsDir, { recursive: true });
@@ -69,7 +79,7 @@ export class ConvoLog {
     if (!messages.length) return '';
 
     const formatted = messages.map((m) => {
-      const label = m.role === 'user' ? 'User' : 'Mr. Bernard';
+      const label = m.role === 'user' ? 'User' : this.assistantLabel;
       const time = new Date(m.ts).toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
       return `[${time}] ${label}: ${m.content}`;
     }).join('\n\n');

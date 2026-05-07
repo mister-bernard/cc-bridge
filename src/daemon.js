@@ -54,8 +54,8 @@ function listSessionIds() {
 
 // Per-session model override (JSON map: sessionId → model string).
 // Falls back to the global CC_BRIDGE_MODEL for anything not in the map.
-// Example: {"session-yujin": "haiku"} — run yujin IG replies on haiku
-// while session-g / session-slater stay on the global sonnet default.
+// Example: {"session-fast": "haiku"} — run a high-volume session on haiku
+// while the rest stay on the global sonnet default.
 function parseSessionModelMap() {
   const raw = (process.env.CC_BRIDGE_SESSION_MODELS || '').trim();
   if (!raw) return null;
@@ -68,11 +68,11 @@ function parseSessionModelMap() {
 
 // Sessions that should run stateless: no shared-context injection, no convo-log
 // injection, and turns are NOT appended to the convo log. Used for fan-in
-// sessions like session-yujin (Aktiom IG auto-replies) where many independent
-// users share one cc-bridge session and would otherwise contaminate each
-// other's conversation context. Caller is responsible for sending full
-// per-thread context in each prompt.
-// Comma-separated list, e.g. CC_BRIDGE_SESSION_STATELESS=session-yujin
+// sessions where many independent users share one cc-bridge session and would
+// otherwise contaminate each other's conversation context (e.g. an IG-auto-
+// reply session handling many DM threads). Caller is responsible for sending
+// full per-thread context in each prompt.
+// Comma-separated list, e.g. CC_BRIDGE_SESSION_STATELESS=session-fanin
 function parseSessionStatelessSet() {
   const raw = (process.env.CC_BRIDGE_SESSION_STATELESS || '').trim();
   if (!raw) return null;
@@ -92,9 +92,9 @@ function parseSessionExtraArgsMap() {
 }
 
 // Per-session CWD override (JSON map: sessionId → absolute path).
-// Used to route L0/public sessions into workspace-l0 so they load CLAUDE-l0.md
-// instead of the full CLAUDE.md. Any session id not in the map falls back to
-// the global claudeCwd.
+// Used to route specific sessions into a sub-workspace so they load a
+// different CLAUDE.md from the daemon-wide default. Any session id not in
+// the map falls back to the global claudeCwd.
 function parseCwdMap() {
   const raw = (process.env.CC_BRIDGE_SESSION_CWD || '').trim();
   if (!raw) return null;
@@ -252,14 +252,15 @@ export function createServer({
   };
 
   // Per-session extra CLI args. Used for tool restrictions on public-facing
-  // sessions (e.g., --disallowedTools on session-groups).
+  // sessions (e.g., --disallowedTools on a multi-human group session).
   const resolveExtraArgs = (sessionId) => {
     if (sessionExtraArgsMap && Array.isArray(sessionExtraArgsMap[sessionId])) {
       return sessionExtraArgsMap[sessionId];
     }
-    // Convention: any session starting with "groups" or "session-groups" gets
-    // dangerous tools blocked at the CLI level as defense in depth.
-    if (sessionId && (sessionId === 'groups' || sessionId.includes('groups'))) {
+    // Convention: session ids containing "groups" get dangerous tools blocked
+    // at the CLI level as defense in depth. Override fully via
+    // CC_BRIDGE_SESSION_EXTRA_ARGS for a specific session.
+    if (sessionId && sessionId.includes('groups')) {
       return [
         '--disallowedTools',
         'Bash', 'Edit', 'Write', 'NotebookEdit', 'TodoWrite', 'Task',
@@ -268,8 +269,10 @@ export function createServer({
     return [];
   };
 
-  // Per-session CWD: explicit map entry → L0 convention → global claudeCwd fallback.
-  // Convention: sessions containing "groups", "wire", or "public" use workspace-l0.
+  // Per-session CWD: explicit map entry → low-trust convention → global claudeCwd.
+  // Convention: sessions containing "groups", "wire", or "public" use the
+  // low-trust workspace if it exists. Override fully via CC_BRIDGE_SESSION_CWD
+  // for a specific session, or set CC_BRIDGE_L0_CWD to point elsewhere.
   const L0_CWD = process.env.CC_BRIDGE_L0_CWD || path.join(path.dirname(claudeCwd), 'workspace-l0');
   const resolveSessionCwd = (sessionId) => {
     if (sessionCwdMap && typeof sessionCwdMap[sessionId] === 'string') {

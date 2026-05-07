@@ -32,29 +32,28 @@ export class SessionRegistry {
     claudeCwd,
     // cwdBySession: function(sessionId) → string | null.
     // When provided, overrides the working directory for specific sessions.
-    // Used to route L0 sessions (wire, groups) into workspace-l0/ so they
-    // load CLAUDE-l0.md instead of the full CLAUDE.md. Falls back to
-    // claudeCwd for any session not matched by the function.
+    // Used to route low-trust sessions (e.g. wire/groups) into a sub-workspace
+    // so they load a different CLAUDE.md from the daemon-wide default. Falls
+    // back to claudeCwd for any session not matched by the function.
     cwdBySession = null,
     // systemPrompt can be a string (same prompt for every session) OR a
-    // function(sessionId) → string (per-session customization). Function
-    // shape lets us route session-g through the G-identity prompt while
-    // session-groups gets a strict public-facing prompt.
+    // function(sessionId) → string (per-session customization). The function
+    // shape lets one session use a high-trust prompt while another gets a
+    // strict public-facing prompt.
     systemPrompt,
     model,
     extraEnv = {},
     extraArgs = [],
     // extraArgsBySession: function(sessionId) → string[] — per-session
-    // claude CLI args. Used for --disallowedTools on session-groups so
-    // dangerous tools are blocked at the CC level, not just in the prompt.
+    // claude CLI args. Used for --disallowedTools on public-facing sessions
+    // so dangerous tools are blocked at the CC level, not just in the prompt.
     extraArgsBySession = null,
     // statelessFor: function(sessionId) → bool. When true, this session
     // skips ConvoLog injection AND skips appending its turns to ConvoLog.
-    // Used for fan-in sessions like session-yujin (Aktiom IG auto-replies)
-    // where many independent users share one cc-bridge session and would
-    // otherwise contaminate each other's conversation context. The caller
-    // (auto-responder) is responsible for sending full per-thread context
-    // in each prompt.
+    // Used for fan-in sessions where many independent users share one
+    // cc-bridge session and would otherwise contaminate each other's
+    // conversation context (the caller is responsible for sending full
+    // per-thread context in each prompt).
     statelessFor = () => false,
     onLog = () => {},
     // Idle timeout in ms. Three shapes accepted:
@@ -74,8 +73,8 @@ export class SessionRegistry {
     this.systemPrompt = systemPrompt;
     // model can be a plain string (same for every session) OR a
     // function(sessionId) → string (per-session override). Per-session
-    // overrides let us run cheap sessions (e.g. session-yujin on haiku for
-    // IG auto-replies) alongside the global default.
+    // overrides let cheap sessions (e.g. a high-volume responder on haiku)
+    // run alongside the global default.
     this.model = model;
     this.extraEnv = extraEnv;
     this.extraArgs = extraArgs;
@@ -218,9 +217,9 @@ export class SessionRegistry {
     }
     // Build the system prompt: session identity + (optional) shared
     // cross-session context + (optional) conversation history block.
-    // For stateless sessions (fan-in responders like session-yujin), skip
-    // both shared context and history injection — the caller supplies full
-    // per-thread context in each prompt.
+    // For stateless sessions (fan-in responders), skip both shared context
+    // and history injection — the caller supplies full per-thread context
+    // in each prompt.
     const stateless = this.statelessFor(sessionId);
     const identityPrompt = this._resolveSystemPrompt(sessionId);
     const sharedContext = stateless ? '' : readSharedContext(this._resolveCwd(sessionId));

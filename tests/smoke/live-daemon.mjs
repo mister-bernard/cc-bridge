@@ -6,7 +6,7 @@
 // assert both return 200 and the second remembers context from the first.
 //
 // Proves: daemon + supervisor + real stream-json + persistent session all
-// compose correctly. Last smoke before wiring openclaw.json.
+// compose correctly.
 
 import http from 'node:http';
 import { createServer } from '../../src/daemon.js';
@@ -47,9 +47,9 @@ function request(server, body) {
 (async () => {
   const server = createServer({
     bearer: BEARER,
-    claudeBin: '/home/openclaw/.local/bin/claude',
-    claudeCwd: '/tmp',
-    model: 'sonnet',
+    claudeBin: process.env.CLAUDE_BIN || 'claude',
+    claudeCwd: process.env.CC_BRIDGE_SMOKE_CWD || '/tmp',
+    model: process.env.CC_BRIDGE_MODEL || 'sonnet',
     systemPrompt: 'Reply with ONE short sentence maximum. No code, no lists.',
     turnTimeoutMs: 90_000,
     log: (ev) => {
@@ -67,18 +67,18 @@ function request(server, body) {
   try {
     console.log('[smoke] >> turn 1: set number');
     const r1 = await request(server, {
-      model: 'cc-bridge/session-g',
+      model: 'cc-bridge/session-smoke',
       messages: [{ role: 'user', content: 'Remember this number: 81234. Just acknowledge.' }],
-      user: 'telegram:39172309',
+      user: 'smoke-test',
     });
     console.log(`[smoke]   turn 1: status=${r1.status} content=${JSON.stringify(r1.body?.choices?.[0]?.message?.content || '').slice(0, 200)}`);
     if (r1.status !== 200) throw new Error(`turn 1 status ${r1.status}: ${r1.raw}`);
 
     console.log('[smoke] >> turn 2: recall');
     const r2 = await request(server, {
-      model: 'cc-bridge/session-g',
+      model: 'cc-bridge/session-smoke',
       messages: [{ role: 'user', content: 'What number did I ask you to remember?' }],
-      user: 'telegram:39172309',
+      user: 'smoke-test',
     });
     console.log(`[smoke]   turn 2: status=${r2.status} content=${JSON.stringify(r2.body?.choices?.[0]?.message?.content || '').slice(0, 200)}`);
     if (r2.status !== 200) throw new Error(`turn 2 status ${r2.status}: ${r2.raw}`);
