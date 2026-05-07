@@ -13,7 +13,7 @@
 # Environment overrides (optional):
 #   CC_BRIDGE_DIR         path to your cc-bridge clone (default: $HOME/projects/cc-bridge)
 #   CC_BRIDGE_UNIT        systemd unit name (default: cc-bridge.service)
-#   CC_BRIDGE_HEALTH_URL  full health URL to probe (default: http://127.0.0.1:18790/health)
+#   CC_BRIDGE_HEALTH_URL  full health URL to probe (default: http://127.0.0.1:18901/health)
 #   CC_BRIDGE_REQUIRED_VARS  whitespace-separated env keys that must appear
 #                            in .env (default: CC_BRIDGE_PROVIDER_KEY)
 
@@ -24,7 +24,7 @@ UNIT="${CC_BRIDGE_UNIT:-cc-bridge.service}"
 DIR="${CC_BRIDGE_DIR:-$HOME/projects/cc-bridge}"
 ENV_FILE="$DIR/.env"
 BACKUP="$ENV_FILE.bak.$(date +%s)"
-HEALTH_URL="${CC_BRIDGE_HEALTH_URL:-http://127.0.0.1:18790/health}"
+HEALTH_URL="${CC_BRIDGE_HEALTH_URL:-http://127.0.0.1:18901/health}"
 REQUIRED="${CC_BRIDGE_REQUIRED_VARS:-CC_BRIDGE_PROVIDER_KEY}"
 LOG="${CC_BRIDGE_RESTART_LOG:-/tmp/cc-bridge-restart.log}"
 
