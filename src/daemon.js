@@ -80,6 +80,24 @@ function parseSessionStatelessSet() {
   return set.size ? set : null;
 }
 
+// Sessions that run in multi-human channels (not single-user DMs, not
+// stateless fan-ins, not background crons). These get the shared
+// `_common-public.txt` block prepended to their session-specific prompt,
+// so public-channel security framing lives in one place instead of being
+// duplicated (and drifting) across every public-facing prompt.
+// Comma-separated. Add operator-specific public session IDs here, or
+// override entirely via CC_BRIDGE_PUBLIC_SESSIONS.
+const DEFAULT_PUBLIC_SESSIONS = [
+  'session-groups',
+];
+function parsePublicSessionSet() {
+  const raw = (process.env.CC_BRIDGE_PUBLIC_SESSIONS || '').trim();
+  const list = raw
+    ? raw.split(',').map((s) => s.trim()).filter(Boolean)
+    : DEFAULT_PUBLIC_SESSIONS;
+  return new Set(list);
+}
+
 // Per-session extra CLI args (JSON map: sessionId → string[]).
 function parseSessionExtraArgsMap() {
   const raw = (process.env.CC_BRIDGE_SESSION_EXTRA_ARGS || '').trim();
@@ -193,6 +211,9 @@ export function createServer({
   model = process.env.CC_BRIDGE_MODEL || 'sonnet',
   sessionModelMap = parseSessionModelMap(),
   sessionStatelessSet = parseSessionStatelessSet(),
+  // Sessions that should get the shared `_common-public.txt` block prepended
+  // (multi-human channels). See DEFAULT_PUBLIC_SESSIONS.
+  publicSessionSet = parsePublicSessionSet(),
   // systemPrompt override for tests. In production, prompts are loaded from
   // files in PROMPTS_DIR (prompts/<session-id>.txt → prompts/default.txt).
   systemPrompt: systemPromptOverride,
@@ -234,6 +255,12 @@ export function createServer({
   //   3. File: prompts/<session-id>.txt
   //   4. File: prompts/default.txt
   //   5. Empty string (CC uses its own defaults)
+  //
+  // For sessions in `publicSessionSet`, `_common-public.txt` is prepended
+  // once so shared public-channel framing lives in a single file and can't
+  // drift across per-session prompts. Paths 1 and 2 (explicit override or
+  // env-wide prompt) skip the prepend — they're full-replacement shapes
+  // used by tests and single-session deployments.
   const resolveSystemPrompt = (sessionId) => {
     if (systemPromptOverride !== undefined) {
       return typeof systemPromptOverride === 'function'
@@ -243,12 +270,15 @@ export function createServer({
     if (process.env.CC_BRIDGE_SYSTEM_PROMPT) {
       return process.env.CC_BRIDGE_SYSTEM_PROMPT;
     }
-    // File-based: try session-specific, then default
-    const sessionPrompt = loadPromptFile(sessionId);
-    if (sessionPrompt) return sessionPrompt;
-    const defaultPrompt = loadPromptFile('default');
-    if (defaultPrompt) return defaultPrompt;
-    return '';
+    const commonPublic =
+      publicSessionSet && publicSessionSet.has(sessionId)
+        ? loadPromptFile('_common-public')
+        : null;
+    const sessionPrompt =
+      loadPromptFile(sessionId) || loadPromptFile('default') || '';
+    return commonPublic
+      ? `${commonPublic}\n\n${sessionPrompt}`.trim()
+      : sessionPrompt;
   };
 
   // Per-session extra CLI args. Used for tool restrictions on public-facing
@@ -564,7 +594,7 @@ export function createServer({
         // keeps the TCP connection alive but the OpenClaw gateway's
         // llm-idle-timeout watchdog only resets on real OpenAI completion
         // chunks, not on comments. Send an empty-delta chunk every 10s so
-        // the watchdog sees activity. Caught after a slater-group turn
+        // the watchdog sees activity. Caught after a long-running turn
         // ran for ~3min while the gateway aborted at 136s and looped on
         // retries.
         const keepaliveId = `chatcmpl-${Date.now()}`;
