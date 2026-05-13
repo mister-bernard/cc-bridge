@@ -14,6 +14,7 @@ import { createServer } from '../../src/daemon.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STUB_OK = path.resolve(__dirname, '../fake-claude');
 const STUB_HANG = path.resolve(__dirname, '../fake-claude-hang');
+const STUB_PARTIAL_HANG = path.resolve(__dirname, '../fake-claude-partial-hang');
 const STUB_CRASH = path.resolve(__dirname, '../fake-claude-crash');
 
 const BEARER = 'test-bearer-unit';
@@ -255,6 +256,31 @@ test('A4 hanging stub + 1s timeout → 504', async () => {
     );
     assert.equal(r.status, 504);
     assert.equal(r.body.error.type, 'upstream_error');
+  } finally {
+    await server.shutdown();
+  }
+});
+
+test('A4c partial-hang stub + 1s turn timeout → 200 with buffered text + truncation marker', async () => {
+  const server = await startServer({
+    claudeBin: STUB_PARTIAL_HANG,
+    turnTimeoutMs: 1000,
+    noProgressTimeoutMs: 0, // disable so absolute turn timeout fires
+    extraEnv: { FAKE_CLAUDE_PARTIAL: 'half-baked answer so far' },
+  });
+  try {
+    const r = await request(
+      server,
+      { method: 'POST', path: '/v1/chat/completions', headers: authed },
+      {
+        model: 'session-default',
+        messages: [{ role: 'user', content: 'long task' }],
+      },
+    );
+    assert.equal(r.status, 200, 'partial buffer should be returned, not 504');
+    const content = r.body.choices[0].message.content;
+    assert.match(content, /half-baked answer so far/);
+    assert.match(content, /turn truncated/i, 'truncation marker present');
   } finally {
     await server.shutdown();
   }

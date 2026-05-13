@@ -247,7 +247,26 @@ export class ClaudeSupervisor {
                 const pt = this.pendingTurn;
                 this.pendingTurn = null;
                 this._clearTurnTimers(pt);
-                pt.reject(new Error('turn timeout'));
+                const partial = pt.buffer.join('');
+                this.onLog({
+                  evt: 'claude.turn_timeout',
+                  timeout_ms: timeoutMs,
+                  partial_bytes: partial.length,
+                });
+                if (partial.length > 0) {
+                  // Preserve in-flight assistant output rather than dropping
+                  // it as a 504. The child is still killed so the next turn
+                  // gets a fresh process; the caller gets what was produced
+                  // plus a truncation marker so it's clear the answer was
+                  // cut off mid-stream.
+                  const truncSec = Math.floor(timeoutMs / 1000);
+                  pt.resolve({
+                    text: `${partial}\n\n[turn truncated after ${truncSec}s — output cut off mid-stream]`,
+                    session_id: this.sessionId,
+                  });
+                } else {
+                  pt.reject(new Error('turn timeout'));
+                }
                 try {
                   this.child && this.child.kill('SIGTERM');
                 } catch {}

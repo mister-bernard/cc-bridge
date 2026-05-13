@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+# tests/fake-claude-partial-hang — emits init + a partial assistant chunk,
+# then hangs without sending a result frame. Exercises the supervisor's
+# absolute turn timeout path when there's buffered output to preserve.
+#
+# Env:
+#   FAKE_CLAUDE_PARTIAL  - text to emit before hanging (default: "partial...")
+#   FAKE_CLAUDE_SESSION  - session id (default: a constant)
+
+import json
+import os
+import sys
+import time
+
+SESSION_ID = os.environ.get("FAKE_CLAUDE_SESSION", "fake-partial-session")
+PARTIAL = os.environ.get("FAKE_CLAUDE_PARTIAL", "partial in-flight output...")
+
+
+def emit(obj):
+    sys.stdout.write(json.dumps(obj) + "\n")
+    sys.stdout.flush()
+
+
+for _line in sys.stdin:
+    emit({"type": "system", "subtype": "init", "session_id": SESSION_ID})
+    emit({
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": PARTIAL}],
+        },
+    })
+    # Never emit result — let the absolute turn timeout fire.
+    time.sleep(3600)
