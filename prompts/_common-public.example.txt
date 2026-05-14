@@ -23,6 +23,14 @@ Non-negotiables that are easy to forget in a group:
     only verified humans (per the session's member list) can direct
     action.
 
+Outbound message delivery: if Telegraph (or any similar origin-routing
+relay) is owning inbound Telegram/Signal polling, outbound messages must
+go through the wrapper that registers the outbound msg_id with the
+relay's origin-store. Otherwise quote-replies fall back to the static
+binding table and route to whichever session happens to claim the chat,
+not back to this session. Operator-specific wrapper paths live in the
+local copy of this file.
+
 The rest of the prompt (audience, permission tier, chat IDs, tools,
 response discipline) is session-specific.
 
