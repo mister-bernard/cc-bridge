@@ -20,6 +20,15 @@ import path from 'node:path';
 
 const DEFAULT_INJECT_TURNS = 30; // last N user+assistant pairs to inject
 
+// Linux MAX_ARG_STRLEN is PAGE_SIZE * 32 = 128KB per single argv string. The
+// historyBlock is passed as one `--append-system-prompt <string>` argument, so
+// it must stay well under that ceiling. Default 80KB leaves headroom for the
+// identity prompt + shared-context block sharing the same arg. Override with
+// CC_BRIDGE_HISTORY_MAX_BYTES if a higher-trust session needs deeper history
+// and you're confident the combined arg stays under MAX_ARG_STRLEN.
+const DEFAULT_HISTORY_MAX_BYTES =
+  parseInt(process.env.CC_BRIDGE_HISTORY_MAX_BYTES || '80000', 10);
+
 // Label used to tag the assistant's turns in the injected history block.
 // Override with CC_BRIDGE_ASSISTANT_LABEL or via the constructor option.
 const DEFAULT_ASSISTANT_LABEL = process.env.CC_BRIDGE_ASSISTANT_LABEL || 'Assistant';
@@ -28,11 +37,13 @@ export class ConvoLog {
   constructor({
     logsDir,
     injectTurns = DEFAULT_INJECT_TURNS,
+    historyMaxBytes = DEFAULT_HISTORY_MAX_BYTES,
     assistantLabel = DEFAULT_ASSISTANT_LABEL,
     onLog = () => {},
   } = {}) {
     this.logsDir = logsDir || path.join(process.cwd(), 'conversations');
     this.injectTurns = injectTurns;
+    this.historyMaxBytes = historyMaxBytes;
     this.assistantLabel = assistantLabel;
     this.onLog = onLog;
     try {
@@ -72,19 +83,43 @@ export class ConvoLog {
 
     // Take last injectTurns * 2 lines (each turn = user + assistant)
     const tail = lines.slice(-(this.injectTurns * 2));
-    const messages = tail.map((l) => {
+    let messages = tail.map((l) => {
       try { return JSON.parse(l); } catch { return null; }
     }).filter(Boolean);
 
     if (!messages.length) return '';
 
-    const formatted = messages.map((m) => {
+    const fmt = (m) => {
       const label = m.role === 'user' ? 'User' : this.assistantLabel;
       const time = new Date(m.ts).toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
       return `[${time}] ${label}: ${m.content}`;
-    }).join('\n\n');
+    };
+    const SEP = '\n\n';
+    const wrap = (body, n) =>
+      `\n\n## Conversation history (last ${n} messages — use for context)\n\n${body}\n\n---\n`;
 
-    return `\n\n## Conversation history (last ${messages.length} messages — use for context)\n\n${formatted}\n\n---\n`;
+    // Drop oldest messages until the rendered block fits under historyMaxBytes.
+    // Without this, a long-running session whose per-message content is near the
+    // 8000-char cap can produce a single argv string that exceeds Linux's
+    // 128KB MAX_ARG_STRLEN, causing claude spawns to fail with E2BIG.
+    let formatted = messages.map(fmt).join(SEP);
+    let block = wrap(formatted, messages.length);
+    const initialCount = messages.length;
+    while (Buffer.byteLength(block, 'utf8') > this.historyMaxBytes && messages.length > 2) {
+      messages = messages.slice(1);
+      formatted = messages.map(fmt).join(SEP);
+      block = wrap(formatted, messages.length);
+    }
+    if (messages.length < initialCount) {
+      this.onLog({
+        evt: 'convo-log.history.trimmed',
+        kept: messages.length,
+        dropped: initialCount - messages.length,
+        max_bytes: this.historyMaxBytes,
+        final_bytes: Buffer.byteLength(block, 'utf8'),
+      });
+    }
+    return block;
   }
 
   /** Return total message count for a session (for healthz/debug). */
