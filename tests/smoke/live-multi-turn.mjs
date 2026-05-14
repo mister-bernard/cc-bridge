@@ -17,8 +17,7 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
-const CLAUDE_BIN =
-  process.env.CLAUDE_BIN || '/home/openclaw/.local/bin/claude';
+const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
 
 const args = [
   '-p',

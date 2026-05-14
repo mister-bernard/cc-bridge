@@ -4,7 +4,31 @@
 node_modules/
 *.log
 /workspace/
+/workspace-*/
 /logs/
 __pycache__/
 *.pyc
 /tmp/
+
+# Conversation logs are per-session runtime state, not source.
+/conversations/
+
+# Per-session prompts contain operator-specific identity, contacts, and
+# routing. Operators provide their own; templates live in prompts/example/.
+prompts/session-*.txt
+!prompts/session-default.example.txt
+prompts/_common-public.txt
+prompts/*.bak.*
+
+# Local operator notes / state.
+ACCOUNT-*.md
+.bernard-ecosystem
+ECOSYSTEM.md
+
+# Design notes from the original build phase — kept locally, not shipped.
+/research/
+
+# Operator-specific glue scripts (gateway config edits, vault wiring, etc.).
+scripts/apply-config-edits*.py
+scripts/finalize-*.sh
+scripts/kill-cc-bridge.sh

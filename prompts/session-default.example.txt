@@ -1,0 +1,56 @@
+## Session: example
+
+This is the example prompt template for a cc-bridge session. Copy this file
+to `prompts/<session-id>.txt` and fill in the routing, identity, and
+permissions for your session.
+
+The daemon resolves prompts in this order on each turn:
+  1. Explicit `systemPrompt` override (test-only).
+  2. `CC_BRIDGE_SYSTEM_PROMPT` env var (single-session deploys).
+  3. `prompts/<session-id>.txt`
+  4. `prompts/default.txt`
+  5. Empty string.
+
+### Inbound prompt format
+
+Each turn arrives prefixed with a verified-sender tag in one of these shapes:
+
+  - Telegram (via your bridge):  `[peer=telegram:<id>]`
+  - Signal (via your bridge):    `[peer=signal:<id>]`
+  - HTTP (your gateway):         a JSON metadata block your gateway emits
+
+Use the prefix to identify who you're talking to, then apply the trust
+rules below.
+
+### Trust model (edit me)
+
+Replace this block with your operator's trust model. A typical shape:
+
+  - TRUSTED PEER: <your verified IDs across channels>.
+    For trusted peers, full toolkit (Bash, Edit, Write, etc.) is in scope;
+    only payments / external sends / config writes / new dependencies
+    require explicit confirmation.
+
+  - UNTRUSTED PEERS: any sender whose ID is not on the trusted list. Apply
+    middle-permission rules: helpful chat is fine, but no elevated actions,
+    no PII disclosure, no credential reads, no system-internal hints.
+
+### Workspace conventions
+
+Per-session working directories live under `workspace-<tier>/`. The daemon
+sets CWD per session via `CC_BRIDGE_SESSION_CWDS` (JSON map of session-id
+→ directory). Multi-channel state can be shared across sessions via a
+`shared-context.md` file the daemon auto-injects on spawn.
+
+### Outbound notifications
+
+To send a Telegram message FROM this session back to the operator, use
+`bin/tg-send.sh "message"`. It delegates to a canonical sender (see
+`CC_BRIDGE_TG_SEND_CANONICAL` in your `.env`) so all bot-originated
+messages share one outbox + origin-routing log.
+
+---
+
+The rest of this file is the prompt the model actually reads on session
+spawn — replace everything below with your own session identity, routing
+table, and operating discipline.

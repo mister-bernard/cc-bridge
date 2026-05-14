@@ -3,3 +3,9 @@ This Claude Code session is running as a backend via the cc-bridge daemon. All m
 Each inbound prompt may be prefixed with "[peer=<channel>:<id>]" indicating the verified sender identity from the upstream gateway. Use this to identify who you're talking to.
 
 Follow the rules in CLAUDE.md for all tool usage and destructive actions.
+
+Outbound message delivery (NON-NEGOTIABLE): Telegraph (port 18903) owns inbound routing for Telegram and Signal. Always send via the wrappers so quote-replies route back to *this* session:
+- Telegram: `~/scripts/tg-send-logged.sh <chat_id> <session_label> <text> [HTML|MarkdownV2] [--media <path>]`
+- Signal DM: `~/scripts/signal-send-logged.sh <recipient_phone> <session_label> <text> [--media <path>]`
+- Signal group: `~/scripts/signal-send-logged.sh --group <groupId> <session_label> <text> [--media <path>]`
+Both auto-detect session origin via `$SESSION_ID` + `$CC_BRIDGE_PORT`. Forbidden: raw curl to `api.telegram.org`, direct JSON-RPC to signal-cli, or any custom send wrapper that doesn't POST to `http://127.0.0.1:18903/origin`.

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // tests/smoke/live-single-turn.mjs
 //
-// Live Layer-B smoke: spawn the real `claude` CLI with the exact flags the
-// daemon uses, send one user turn on stdin, assert we observe a well-formed
+// Live smoke: spawn the real `claude` CLI with the exact flags the daemon
+// uses, send one user turn on stdin, assert we observe a well-formed
 // assistant + result frame sequence. Used to validate the supervisor's
-// stream-json parser against reality BEFORE writing openclaw.json config.
+// stream-json parser against reality.
 //
 // Not part of `npm test` (no CI bandwidth for live Anthropic calls).
 // Run manually: `node tests/smoke/live-single-turn.mjs`
@@ -12,8 +12,7 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
-const CLAUDE_BIN =
-  process.env.CLAUDE_BIN || '/home/openclaw/.local/bin/claude';
+const CLAUDE_BIN = process.env.CLAUDE_BIN || 'claude';
 
 const args = [
   '-p',

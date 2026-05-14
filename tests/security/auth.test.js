@@ -66,7 +66,7 @@ function request(server, { method = 'GET', path: reqPath, headers = {} }, body) 
 }
 
 const validBody = {
-  model: 'cc-bridge/session-g',
+  model: 'cc-bridge/session-default',
   messages: [{ role: 'user', content: 'hi' }],
 };
 

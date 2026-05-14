@@ -54,8 +54,8 @@ function listSessionIds() {
 
 // Per-session model override (JSON map: sessionId → model string).
 // Falls back to the global CC_BRIDGE_MODEL for anything not in the map.
-// Example: {"session-yujin": "haiku"} — run yujin IG replies on haiku
-// while session-g / session-slater stay on the global sonnet default.
+// Example: {"session-fast": "haiku"} — run a high-volume session on haiku
+// while the rest stay on the global sonnet default.
 function parseSessionModelMap() {
   const raw = (process.env.CC_BRIDGE_SESSION_MODELS || '').trim();
   if (!raw) return null;
@@ -68,16 +68,34 @@ function parseSessionModelMap() {
 
 // Sessions that should run stateless: no shared-context injection, no convo-log
 // injection, and turns are NOT appended to the convo log. Used for fan-in
-// sessions like session-yujin (Aktiom IG auto-replies) where many independent
-// users share one cc-bridge session and would otherwise contaminate each
-// other's conversation context. Caller is responsible for sending full
-// per-thread context in each prompt.
-// Comma-separated list, e.g. CC_BRIDGE_SESSION_STATELESS=session-yujin
+// sessions where many independent users share one cc-bridge session and would
+// otherwise contaminate each other's conversation context (e.g. an IG-auto-
+// reply session handling many DM threads). Caller is responsible for sending
+// full per-thread context in each prompt.
+// Comma-separated list, e.g. CC_BRIDGE_SESSION_STATELESS=session-fanin
 function parseSessionStatelessSet() {
   const raw = (process.env.CC_BRIDGE_SESSION_STATELESS || '').trim();
   if (!raw) return null;
   const set = new Set(raw.split(',').map((s) => s.trim()).filter(Boolean));
   return set.size ? set : null;
+}
+
+// Sessions that run in multi-human channels (not single-user DMs, not
+// stateless fan-ins, not background crons). These get the shared
+// `_common-public.txt` block prepended to their session-specific prompt,
+// so public-channel security framing lives in one place instead of being
+// duplicated (and drifting) across every public-facing prompt.
+// Comma-separated. Add operator-specific public session IDs here, or
+// override entirely via CC_BRIDGE_PUBLIC_SESSIONS.
+const DEFAULT_PUBLIC_SESSIONS = [
+  'session-groups',
+];
+function parsePublicSessionSet() {
+  const raw = (process.env.CC_BRIDGE_PUBLIC_SESSIONS || '').trim();
+  const list = raw
+    ? raw.split(',').map((s) => s.trim()).filter(Boolean)
+    : DEFAULT_PUBLIC_SESSIONS;
+  return new Set(list);
 }
 
 // Per-session extra CLI args (JSON map: sessionId → string[]).
@@ -92,9 +110,9 @@ function parseSessionExtraArgsMap() {
 }
 
 // Per-session CWD override (JSON map: sessionId → absolute path).
-// Used to route L0/public sessions into workspace-l0 so they load CLAUDE-l0.md
-// instead of the full CLAUDE.md. Any session id not in the map falls back to
-// the global claudeCwd.
+// Used to route specific sessions into a sub-workspace so they load a
+// different CLAUDE.md from the daemon-wide default. Any session id not in
+// the map falls back to the global claudeCwd.
 function parseCwdMap() {
   const raw = (process.env.CC_BRIDGE_SESSION_CWD || '').trim();
   if (!raw) return null;
@@ -193,6 +211,9 @@ export function createServer({
   model = process.env.CC_BRIDGE_MODEL || 'sonnet',
   sessionModelMap = parseSessionModelMap(),
   sessionStatelessSet = parseSessionStatelessSet(),
+  // Sessions that should get the shared `_common-public.txt` block prepended
+  // (multi-human channels). See DEFAULT_PUBLIC_SESSIONS.
+  publicSessionSet = parsePublicSessionSet(),
   // systemPrompt override for tests. In production, prompts are loaded from
   // files in PROMPTS_DIR (prompts/<session-id>.txt → prompts/default.txt).
   systemPrompt: systemPromptOverride,
@@ -234,6 +255,12 @@ export function createServer({
   //   3. File: prompts/<session-id>.txt
   //   4. File: prompts/default.txt
   //   5. Empty string (CC uses its own defaults)
+  //
+  // For sessions in `publicSessionSet`, `_common-public.txt` is prepended
+  // once so shared public-channel framing lives in a single file and can't
+  // drift across per-session prompts. Paths 1 and 2 (explicit override or
+  // env-wide prompt) skip the prepend — they're full-replacement shapes
+  // used by tests and single-session deployments.
   const resolveSystemPrompt = (sessionId) => {
     if (systemPromptOverride !== undefined) {
       return typeof systemPromptOverride === 'function'
@@ -243,23 +270,27 @@ export function createServer({
     if (process.env.CC_BRIDGE_SYSTEM_PROMPT) {
       return process.env.CC_BRIDGE_SYSTEM_PROMPT;
     }
-    // File-based: try session-specific, then default
-    const sessionPrompt = loadPromptFile(sessionId);
-    if (sessionPrompt) return sessionPrompt;
-    const defaultPrompt = loadPromptFile('default');
-    if (defaultPrompt) return defaultPrompt;
-    return '';
+    const commonPublic =
+      publicSessionSet && publicSessionSet.has(sessionId)
+        ? loadPromptFile('_common-public')
+        : null;
+    const sessionPrompt =
+      loadPromptFile(sessionId) || loadPromptFile('default') || '';
+    return commonPublic
+      ? `${commonPublic}\n\n${sessionPrompt}`.trim()
+      : sessionPrompt;
   };
 
   // Per-session extra CLI args. Used for tool restrictions on public-facing
-  // sessions (e.g., --disallowedTools on session-groups).
+  // sessions (e.g., --disallowedTools on a multi-human group session).
   const resolveExtraArgs = (sessionId) => {
     if (sessionExtraArgsMap && Array.isArray(sessionExtraArgsMap[sessionId])) {
       return sessionExtraArgsMap[sessionId];
     }
-    // Convention: any session starting with "groups" or "session-groups" gets
-    // dangerous tools blocked at the CLI level as defense in depth.
-    if (sessionId && (sessionId === 'groups' || sessionId.includes('groups'))) {
+    // Convention: session ids containing "groups" get dangerous tools blocked
+    // at the CLI level as defense in depth. Override fully via
+    // CC_BRIDGE_SESSION_EXTRA_ARGS for a specific session.
+    if (sessionId && sessionId.includes('groups')) {
       return [
         '--disallowedTools',
         'Bash', 'Edit', 'Write', 'NotebookEdit', 'TodoWrite', 'Task',
@@ -268,8 +299,10 @@ export function createServer({
     return [];
   };
 
-  // Per-session CWD: explicit map entry → L0 convention → global claudeCwd fallback.
-  // Convention: sessions containing "groups", "wire", or "public" use workspace-l0.
+  // Per-session CWD: explicit map entry → low-trust convention → global claudeCwd.
+  // Convention: sessions containing "groups", "wire", or "public" use the
+  // low-trust workspace if it exists. Override fully via CC_BRIDGE_SESSION_CWD
+  // for a specific session, or set CC_BRIDGE_L0_CWD to point elsewhere.
   const L0_CWD = process.env.CC_BRIDGE_L0_CWD || path.join(path.dirname(claudeCwd), 'workspace-l0');
   const resolveSessionCwd = (sessionId) => {
     if (sessionCwdMap && typeof sessionCwdMap[sessionId] === 'string') {
@@ -561,7 +594,7 @@ export function createServer({
         // keeps the TCP connection alive but the OpenClaw gateway's
         // llm-idle-timeout watchdog only resets on real OpenAI completion
         // chunks, not on comments. Send an empty-delta chunk every 10s so
-        // the watchdog sees activity. Caught after a slater-group turn
+        // the watchdog sees activity. Caught after a long-running turn
         // ran for ~3min while the gateway aborted at 136s and looped on
         // retries.
         const keepaliveId = `chatcmpl-${Date.now()}`;

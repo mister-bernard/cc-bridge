@@ -7,8 +7,8 @@
 //
 // Format of the JSON file:
 //   {
-//     "session-tom":   { "claudeSessionId": "abc-...", "savedAt": 1713... },
-//     "session-elina": { "claudeSessionId": "def-...", "savedAt": 1713... }
+//     "session-foo": { "claudeSessionId": "abc-...", "savedAt": 1713... },
+//     "session-bar": { "claudeSessionId": "def-...", "savedAt": 1713... }
 //   }
 
 import fs from 'node:fs';

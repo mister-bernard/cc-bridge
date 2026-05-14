@@ -14,6 +14,7 @@ import { createServer } from '../../src/daemon.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STUB_OK = path.resolve(__dirname, '../fake-claude');
 const STUB_HANG = path.resolve(__dirname, '../fake-claude-hang');
+const STUB_PARTIAL_HANG = path.resolve(__dirname, '../fake-claude-partial-hang');
 const STUB_CRASH = path.resolve(__dirname, '../fake-claude-crash');
 
 const BEARER = 'test-bearer-unit';
@@ -29,7 +30,7 @@ function startServer(opts = {}) {
     systemPrompt: '', // skip --append-system-prompt for stubs
     turnTimeoutMs: 5000,
     batchDebounceMs: 0, // disable batching for existing tests
-    advertisedSessionIds: ["session-g", "session-pv"],
+    advertisedSessionIds: ["session-default", "session-secondary"],
     log: silentLog,
     ...opts,
   });
@@ -79,7 +80,7 @@ test('A1 POST /v1/chat/completions with valid body → 200 + assistant content',
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
       {
-        model: 'cc-bridge/session-g',
+        model: 'cc-bridge/session-default',
         messages: [{ role: 'user', content: 'hello' }],
       },
     );
@@ -89,7 +90,7 @@ test('A1 POST /v1/chat/completions with valid body → 200 + assistant content',
     assert.equal(typeof r.body.choices[0].message.content, 'string');
     assert.ok(r.body.choices[0].message.content.length > 0);
     assert.equal(r.body.choices[0].finish_reason, 'stop');
-    assert.equal(r.body.model, 'session-g'); // prefix stripped
+    assert.equal(r.body.model, 'session-default'); // prefix stripped
   } finally {
     await server.shutdown();
   }
@@ -101,7 +102,7 @@ test('A1b model without cc-bridge/ prefix also works', async () => {
     const r = await request(
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
-      { model: 'session-g', messages: [{ role: 'user', content: 'hi' }] },
+      { model: 'session-default', messages: [{ role: 'user', content: 'hi' }] },
     );
     assert.equal(r.status, 200);
   } finally {
@@ -116,7 +117,7 @@ test('A1c content-array form (OpenAI multimodal shape) is handled', async () => 
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
       {
-        model: 'session-g',
+        model: 'session-default',
         messages: [
           {
             role: 'user',
@@ -139,7 +140,7 @@ test('A1d prior assistant turns in history are ignored; last user wins', async (
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
       {
-        model: 'session-g',
+        model: 'session-default',
         messages: [
           { role: 'user', content: 'first' },
           { role: 'assistant', content: 'earlier reply' },
@@ -159,7 +160,7 @@ test('A2 missing messages field → 400', async () => {
     const r = await request(
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
-      { model: 'session-g' },
+      { model: 'session-default' },
     );
     assert.equal(r.status, 400);
     assert.equal(r.body.error.type, 'invalid_request_error');
@@ -175,7 +176,7 @@ test('A2b empty user content → 400', async () => {
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
       {
-        model: 'session-g',
+        model: 'session-default',
         messages: [{ role: 'user', content: '   ' }],
       },
     );
@@ -224,7 +225,7 @@ test('A3 three concurrent POSTs on same session serialize and all succeed', asyn
         server,
         { method: 'POST', path: '/v1/chat/completions', headers: authed },
         {
-          model: 'session-g',
+          model: 'session-default',
           messages: [{ role: 'user', content: `q${n}` }],
         },
       );
@@ -249,12 +250,37 @@ test('A4 hanging stub + 1s timeout → 504', async () => {
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
       {
-        model: 'session-g',
+        model: 'session-default',
         messages: [{ role: 'user', content: 'never replies' }],
       },
     );
     assert.equal(r.status, 504);
     assert.equal(r.body.error.type, 'upstream_error');
+  } finally {
+    await server.shutdown();
+  }
+});
+
+test('A4c partial-hang stub + 1s turn timeout → 200 with buffered text + truncation marker', async () => {
+  const server = await startServer({
+    claudeBin: STUB_PARTIAL_HANG,
+    turnTimeoutMs: 1000,
+    noProgressTimeoutMs: 0, // disable so absolute turn timeout fires
+    extraEnv: { FAKE_CLAUDE_PARTIAL: 'half-baked answer so far' },
+  });
+  try {
+    const r = await request(
+      server,
+      { method: 'POST', path: '/v1/chat/completions', headers: authed },
+      {
+        model: 'session-default',
+        messages: [{ role: 'user', content: 'long task' }],
+      },
+    );
+    assert.equal(r.status, 200, 'partial buffer should be returned, not 504');
+    const content = r.body.choices[0].message.content;
+    assert.match(content, /half-baked answer so far/);
+    assert.match(content, /turn truncated/i, 'truncation marker present');
   } finally {
     await server.shutdown();
   }
@@ -272,7 +298,7 @@ test('A4b hanging stub + no-progress watchdog (500ms) fires faster than absolute
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
       {
-        model: 'session-g',
+        model: 'session-default',
         messages: [{ role: 'user', content: 'never replies' }],
       },
     );
@@ -298,7 +324,7 @@ test('A5 crashing stub → 503 and daemon stays up', async () => {
     const r1 = await request(
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
-      { model: 'session-g', messages: [{ role: 'user', content: 'boom' }] },
+      { model: 'session-default', messages: [{ role: 'user', content: 'boom' }] },
     );
     assert.equal(r1.status, 503);
     // Daemon must still be alive and serving /healthz.
@@ -335,7 +361,39 @@ test('GET /v1/models with bearer → list shape', async () => {
     assert.equal(r.status, 200);
     assert.equal(r.body.object, 'list');
     assert.ok(Array.isArray(r.body.data));
-    assert.ok(r.body.data.find((m) => m.id === 'session-g'));
+    assert.ok(r.body.data.find((m) => m.id === 'session-default'));
+  } finally {
+    await server.shutdown();
+  }
+});
+
+test('WIRE1 createServer wires sessionModelMap + sessionStatelessSet through to the registry', async () => {
+  const server = await startServer({
+    sessionModelMap: { 'session-stateless': 'haiku' },
+    sessionStatelessSet: new Set(['session-stateless']),
+  });
+  try {
+    const reg = server.registry;
+    // After a turn, stateless session must NOT have written to convo log,
+    // and a stateful session must have.
+    await request(
+      server,
+      { method: 'POST', path: '/v1/chat/completions', headers: authed },
+      { model: 'session-stateless', messages: [{ role: 'user', content: 'hi y' }] },
+    );
+    await request(
+      server,
+      { method: 'POST', path: '/v1/chat/completions', headers: authed },
+      { model: 'session-default', messages: [{ role: 'user', content: 'hi g' }] },
+    );
+    assert.equal(reg.convoLog.count('session-stateless'), 0,
+      'stateless session must not append to convo log');
+    assert.ok(reg.convoLog.count('session-default') >= 2,
+      'stateful session must record turns');
+    // Direct buildArgs check confirms model wiring.
+    const argsY = reg._buildArgs('session-stateless');
+    const idx = argsY.indexOf('--model');
+    assert.equal(argsY[idx + 1], 'haiku');
   } finally {
     await server.shutdown();
   }
@@ -347,16 +405,16 @@ test('IDLE1 session is killed after idle timeout and re-spawns on next request',
     sweepIntervalMs: 100, // sweep every 100ms
   });
   try {
-    // First request — spawns session-g (spawn_count=1)
+    // First request — spawns session-default (spawn_count=1)
     const r1 = await request(
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
-      { model: 'session-g', messages: [{ role: 'user', content: 'hi' }] },
+      { model: 'session-default', messages: [{ role: 'user', content: 'hi' }] },
     );
     assert.equal(r1.status, 200);
     const h1 = await request(server, { method: 'GET', path: '/healthz' });
-    assert.equal(h1.body.sessions['session-g'].spawn_count, 1);
-    const firstPid = h1.body.sessions['session-g'].pid;
+    assert.equal(h1.body.sessions['session-default'].spawn_count, 1);
+    const firstPid = h1.body.sessions['session-default'].pid;
     assert.ok(firstPid);
 
     // Wait past the idle threshold + one sweep cycle.
@@ -365,7 +423,7 @@ test('IDLE1 session is killed after idle timeout and re-spawns on next request',
     // Session should be gone from the registry (/healthz no longer lists it)
     const h2 = await request(server, { method: 'GET', path: '/healthz' });
     assert.equal(
-      h2.body.sessions['session-g'],
+      h2.body.sessions['session-default'],
       undefined,
       'session expired and removed',
     );
@@ -374,25 +432,25 @@ test('IDLE1 session is killed after idle timeout and re-spawns on next request',
     const r2 = await request(
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
-      { model: 'session-g', messages: [{ role: 'user', content: 'back?' }] },
+      { model: 'session-default', messages: [{ role: 'user', content: 'back?' }] },
     );
     assert.equal(r2.status, 200);
     const h3 = await request(server, { method: 'GET', path: '/healthz' });
-    assert.ok(h3.body.sessions['session-g']);
+    assert.ok(h3.body.sessions['session-default']);
     assert.notEqual(
-      h3.body.sessions['session-g'].pid,
+      h3.body.sessions['session-default'].pid,
       firstPid,
       'new child has different pid',
     );
-    assert.equal(h3.body.sessions['session-g'].spawn_count, 1);
+    assert.equal(h3.body.sessions['session-default'].spawn_count, 1);
   } finally {
     await server.shutdown();
   }
 });
 
-test('IDLE2 per-session timeout function: session-g stays warm, session-pv expires', async () => {
+test('IDLE2 per-session timeout function: session-default stays warm, session-secondary expires', async () => {
   const server = await startServer({
-    idleTimeoutMs: (id) => (id === 'session-pv' ? 300 : 0),
+    idleTimeoutMs: (id) => (id === 'session-secondary' ? 300 : 0),
     sweepIntervalMs: 100,
   });
   try {
@@ -400,26 +458,26 @@ test('IDLE2 per-session timeout function: session-g stays warm, session-pv expir
     await request(
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
-      { model: 'session-g', messages: [{ role: 'user', content: 'hi g' }] },
+      { model: 'session-default', messages: [{ role: 'user', content: 'hi g' }] },
     );
     await request(
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
-      { model: 'session-pv', messages: [{ role: 'user', content: 'hi pv' }] },
+      { model: 'session-secondary', messages: [{ role: 'user', content: 'hi secondary' }] },
     );
     const h1 = await request(server, { method: 'GET', path: '/healthz' });
-    assert.ok(h1.body.sessions['session-g']);
-    assert.ok(h1.body.sessions['session-pv']);
+    assert.ok(h1.body.sessions['session-default']);
+    assert.ok(h1.body.sessions['session-secondary']);
 
     // Wait past the idle threshold.
     await new Promise((r) => setTimeout(r, 600));
 
     const h2 = await request(server, { method: 'GET', path: '/healthz' });
-    assert.ok(h2.body.sessions['session-g'], 'session-g still warm (no timeout)');
+    assert.ok(h2.body.sessions['session-default'], 'session-default still warm (no timeout)');
     assert.equal(
-      h2.body.sessions['session-pv'],
+      h2.body.sessions['session-secondary'],
       undefined,
-      'session-pv expired',
+      'session-secondary expired',
     );
   } finally {
     await server.shutdown();
@@ -431,7 +489,7 @@ test('STREAM1 stream:true → SSE with role, content, finish chunks, then [DONE]
   try {
     const { port } = server.address();
     const body = JSON.stringify({
-      model: 'cc-bridge/session-g',
+      model: 'cc-bridge/session-default',
       messages: [{ role: 'user', content: 'hi' }],
       stream: true,
     });
@@ -507,7 +565,7 @@ test('STREAM3 stream:true → during long turn, keepalives are real chat.complet
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
       {
-        model: 'cc-bridge/session-g',
+        model: 'cc-bridge/session-default',
         messages: [{ role: 'user', content: 'slow' }],
         stream: true,
       },
@@ -549,8 +607,8 @@ test('STREAM2 stream:true + upstream timeout → SSE error chunk, no [DONE]', as
   // SSE headers are written (200 OK) the moment stream:true is requested, so
   // by the time the turn fails we cannot change the HTTP status. Previously
   // we wrote `data: [DONE]\n\n` and closed cleanly — which the gateway saw
-  // as a successful empty completion (silent-failure bug: PV Weekly OSINT
-  // was empty for days before anyone noticed). Correct behavior: emit an
+  // as a successful empty completion (silent-failure bug: empty
+  // completions were treated as success). Correct behavior: emit an
   // OpenAI-style `data: {"error":...}` chunk and end WITHOUT [DONE].
   const server = await startServer({
     claudeBin: STUB_HANG,
@@ -561,7 +619,7 @@ test('STREAM2 stream:true + upstream timeout → SSE error chunk, no [DONE]', as
       server,
       { method: 'POST', path: '/v1/chat/completions', headers: authed },
       {
-        model: 'cc-bridge/session-g',
+        model: 'cc-bridge/session-default',
         messages: [{ role: 'user', content: 'nothing' }],
         stream: true,
       },
@@ -603,7 +661,7 @@ test('DBATCH1 two rapid messages to same session → first gets empty ack, secon
       request(
         server,
         { method: 'POST', path: '/v1/chat/completions', headers: authed },
-        { model: 'session-g', messages: [{ role: 'user', content: msg }] },
+        { model: 'session-default', messages: [{ role: 'user', content: msg }] },
       );
 
     // Fire both requests without waiting.
@@ -631,7 +689,7 @@ test('DBATCH2 batching disabled (debounceMs=0) → all requests get real replies
       request(
         server,
         { method: 'POST', path: '/v1/chat/completions', headers: authed },
-        { model: 'session-g', messages: [{ role: 'user', content: msg }] },
+        { model: 'session-default', messages: [{ role: 'user', content: msg }] },
       );
 
     const [r1, r2] = await Promise.all([send('a'), send('b')]);

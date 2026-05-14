@@ -9,10 +9,10 @@
 // Config (env):
 //   CC_BRIDGE_TG_BOT_TOKEN           — Telegram bot token
 //   CC_BRIDGE_SESSION_TG_GROUPS      — JSON map: sessionId → array of chat IDs
-//     e.g. {"session-tom": ["-5271053898"], "session-elina": ["-5190022092"]}
+//     e.g. {"session-foo": ["-1001234567890"], "session-bar": ["-1009876543210"]}
 //   CC_BRIDGE_BOOT_NOTIFY_SUPPRESS   — comma-separated session IDs that should
 //     NOT send a boot message even if listed in TG_GROUPS (observer/silent sessions)
-//     e.g. "session-limitless,session-groups"
+//     e.g. "session-silent,session-observer"
 
 import https from 'node:https';
 
